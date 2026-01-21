@@ -9,6 +9,7 @@ import {
   NodeChange,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { Plus } from "lucide-react";
 
 import { useStore } from "./stores/useStore";
 import { AgentNode } from "./components/AgentNode/index";
@@ -31,6 +32,7 @@ function AppContent() {
     setSidebarOpen,
     addSession,
     agents,
+    setAddAgentModalOpen,
   } = useStore();
 
   const [nodes, setNodes, onNodesChange] = useNodesState(storeNodes);
@@ -168,6 +170,8 @@ function AppContent() {
     setSidebarOpen(false);
   }, [setSelectedNodeId, setSidebarOpen]);
 
+  const isEmpty = nodes.length === 0;
+
   return (
     <div className="w-screen h-screen bg-canvas overflow-hidden flex flex-col">
       <Header />
@@ -195,12 +199,33 @@ function AppContent() {
             size={1}
             color="#333"
           />
-          <Controls 
+          <Controls
             showInteractive={false}
             position="bottom-left"
           />
           <CanvasControls />
         </ReactFlow>
+
+        {/* Empty state */}
+        {isEmpty && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="text-center pointer-events-auto">
+              <div className="w-16 h-16 rounded-2xl bg-canvas-lighter border border-canvas-lighter flex items-center justify-center mx-auto mb-4">
+                <Plus className="w-8 h-8 text-zinc-600" />
+              </div>
+              <h2 className="text-lg font-medium text-zinc-300 mb-2">No agents yet</h2>
+              <p className="text-sm text-zinc-500 mb-4 max-w-xs">
+                Spawn your first AI agent to get started
+              </p>
+              <button
+                onClick={() => setAddAgentModalOpen(true)}
+                className="px-4 py-2 rounded-lg bg-white text-canvas font-medium text-sm hover:bg-zinc-100 transition-colors"
+              >
+                Create Agent
+              </button>
+            </div>
+          </div>
+        )}
 
         <Sidebar />
       </div>

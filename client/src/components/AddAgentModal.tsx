@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Sparkles, Code, Cpu, FolderOpen } from "lucide-react";
+import { X, Sparkles, Code, Cpu, FolderOpen, Terminal } from "lucide-react";
 import { useStore, Agent } from "../stores/useStore";
 
 const iconMap: Record<string, any> = {
@@ -23,6 +23,7 @@ export function AddAgentModal() {
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [cwd, setCwd] = useState("");
   const [customName, setCustomName] = useState("");
+  const [commandArgs, setCommandArgs] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
   // Reset form when modal opens
@@ -31,6 +32,7 @@ export function AddAgentModal() {
     setSelectedAgent(null);
     setCwd("");
     setCustomName("");
+    setCommandArgs("");
   };
 
   const handleCreate = async () => {
@@ -41,6 +43,9 @@ export function AddAgentModal() {
     try {
       const nodeId = `node-${Date.now()}`;
       const workingDir = cwd || launchCwd;
+      const fullCommand = commandArgs
+        ? `${selectedAgent.command} ${commandArgs}`
+        : selectedAgent.command;
 
       const res = await fetch("/api/sessions", {
         method: "POST",
@@ -48,7 +53,7 @@ export function AddAgentModal() {
         body: JSON.stringify({
           agentId: selectedAgent.id,
           agentName: selectedAgent.name,
-          command: selectedAgent.command,
+          command: fullCommand,
           cwd: workingDir,
           nodeId,
           customName: customName || undefined,
@@ -80,7 +85,7 @@ export function AddAgentModal() {
         sessionId,
         agentId: selectedAgent.id,
         agentName: selectedAgent.name,
-        command: selectedAgent.command,
+        command: fullCommand,
         color: selectedAgent.color,
         createdAt: new Date().toISOString(),
         cwd: workingDir,
@@ -170,6 +175,26 @@ export function AddAgentModal() {
                     placeholder={selectedAgent?.name || "My Agent"}
                     className="w-full px-3 py-2 rounded-md bg-canvas border border-canvas-lighter text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors"
                   />
+                </div>
+
+                {/* Command arguments */}
+                <div className="space-y-2">
+                  <label className="text-xs text-zinc-500 flex items-center gap-1.5">
+                    <Terminal className="w-3 h-3" />
+                    Arguments (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={commandArgs}
+                    onChange={(e) => setCommandArgs(e.target.value)}
+                    placeholder="e.g. --model opus or --resume"
+                    className="w-full px-3 py-2 rounded-md bg-canvas border border-canvas-lighter text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors font-mono"
+                  />
+                  {selectedAgent && (
+                    <p className="text-[10px] text-zinc-600 font-mono">
+                      {selectedAgent.command}{commandArgs ? ` ${commandArgs}` : ""}
+                    </p>
+                  )}
                 </div>
 
                 {/* Working directory */}

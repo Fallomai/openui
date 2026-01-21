@@ -14,7 +14,13 @@ import {
   Rocket,
   Bot,
   Brain,
-  Wand2
+  Wand2,
+  ChevronDown,
+  ChevronUp,
+  BarChart3,
+  Activity,
+  DollarSign,
+  FileCode
 } from "lucide-react";
 import { useStore, AgentStatus } from "../stores/useStore";
 import { Terminal } from "./Terminal";
@@ -24,7 +30,7 @@ const statusConfig: Record<AgentStatus, { label: string; color: string }> = {
   running: { label: "Running", color: "#22C55E" },
   waiting_input: { label: "Waiting for input", color: "#F97316" },
   tool_calling: { label: "Tool Calling", color: "#8B5CF6" },
-  idle: { label: "Idle", color: "#6B7280" },
+  idle: { label: "Waiting for instruction", color: "#FBBF24" },
   disconnected: { label: "Disconnected", color: "#EF4444" },
   error: { label: "Error", color: "#EF4444" },
 };
@@ -66,6 +72,8 @@ export function Sidebar() {
   const [editIcon, setEditIcon] = useState("");
   const [isRestarting, setIsRestarting] = useState(false);
   const [terminalKey, setTerminalKey] = useState(0);
+  const [showRestartOptions, setShowRestartOptions] = useState(false);
+  const [restartArgs, setRestartArgs] = useState("");
 
   // Reset edit state when session changes (but NOT when nodes change)
   useEffect(() => {
@@ -88,14 +96,24 @@ export function Sidebar() {
     setIsEditing(false);
   };
 
-  const handleSpawnFresh = async () => {
+  // Extract base command (without args) from session command
+  const getBaseCommand = (cmd: string) => {
+    const parts = cmd.split(' ');
+    return parts[0]; // e.g. "claude" or "opencode"
+  };
+
+  const handleSpawnFresh = async (withArgs?: string) => {
     if (!session?.sessionId || !selectedNodeId) return;
-    
+
     setIsRestarting(true);
     try {
       // Delete old session
       await fetch(`/api/sessions/${session.sessionId}`, { method: "DELETE" });
-      
+
+      // Build command with optional args
+      const baseCommand = getBaseCommand(session.command);
+      const finalCommand = withArgs ? `${baseCommand} ${withArgs}` : baseCommand;
+
       // Create new session with same settings
       const res = await fetch("/api/sessions", {
         method: "POST",
@@ -103,24 +121,27 @@ export function Sidebar() {
         body: JSON.stringify({
           agentId: session.agentId,
           agentName: session.agentName,
-          command: session.command,
+          command: finalCommand,
           cwd: session.cwd,
           nodeId: selectedNodeId,
           customName: session.customName,
           customColor: session.customColor,
         }),
       });
-      
+
       if (res.ok) {
         const { sessionId: newSessionId } = await res.json();
-        // Update session with new sessionId
-        updateSession(selectedNodeId, { 
+        // Update session with new sessionId and command
+        updateSession(selectedNodeId, {
           sessionId: newSessionId,
-          status: "starting", 
-          isRestored: false 
+          command: finalCommand,
+          status: "starting",
+          isRestored: false
         });
         // Force terminal to reconnect
         setTerminalKey(k => k + 1);
+        setShowRestartOptions(false);
+        setRestartArgs("");
       }
     } catch (e) {
       console.error("Failed to spawn fresh:", e);
@@ -187,15 +208,38 @@ export function Sidebar() {
           {/* Disconnected banner */}
           {isDisconnected && (
             <div className="flex-shrink-0 px-4 py-3 bg-red-500/10 border-b border-red-500/20">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm text-red-400 font-medium">Session Disconnected</p>
-                  <p className="text-xs text-red-400/70 mt-0.5">The agent was stopped. Spawn a fresh session.</p>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm text-red-400 font-medium">Session Disconnected</p>
+                    <p className="text-xs text-red-400/70 mt-0.5">The agent was stopped. Spawn a fresh session.</p>
+                  </div>
+                  <button
+                    onClick={() => setShowRestartOptions(!showRestartOptions)}
+                    className="flex items-center gap-1 px-2 py-1 rounded text-xs text-red-400 hover:bg-red-500/20 transition-colors"
+                  >
+                    {showRestartOptions ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                    Options
+                  </button>
                 </div>
+                {showRestartOptions && (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={restartArgs}
+                      onChange={(e) => setRestartArgs(e.target.value)}
+                      placeholder="Arguments (e.g. --model opus --resume)"
+                      className="w-full px-3 py-1.5 rounded-md bg-canvas border border-red-500/30 text-white text-xs placeholder-zinc-500 focus:outline-none focus:border-red-500/50 font-mono"
+                    />
+                    <p className="text-[10px] text-red-400/50 font-mono">
+                      {getBaseCommand(session?.command || "")}{restartArgs ? ` ${restartArgs}` : ""}
+                    </p>
+                  </div>
+                )}
                 <button
-                  onClick={handleSpawnFresh}
+                  onClick={() => handleSpawnFresh(restartArgs || undefined)}
                   disabled={isRestarting}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-red-500 text-white text-sm font-medium hover:bg-red-600 disabled:opacity-50 transition-colors"
+                  className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-md bg-red-500 text-white text-sm font-medium hover:bg-red-600 disabled:opacity-50 transition-colors"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   {isRestarting ? "Starting..." : "Spawn Fresh"}
@@ -206,15 +250,41 @@ export function Sidebar() {
 
           {/* Session Management Controls */}
           {!isDisconnected && !isEditing && (
-            <div className="flex-shrink-0 px-4 py-2 border-b border-canvas-lighter flex items-center gap-2">
-              <button
-                onClick={handleSpawnFresh}
-                disabled={isRestarting}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded-md bg-canvas-lighter text-zinc-300 text-xs font-medium hover:bg-zinc-700 disabled:opacity-50 transition-colors"
-              >
-                <RotateCcw className="w-3 h-3" />
-                {isRestarting ? "Restarting..." : "Restart Session"}
-              </button>
+            <div className="flex-shrink-0 px-4 py-2 border-b border-canvas-lighter space-y-2">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleSpawnFresh(restartArgs || undefined)}
+                  disabled={isRestarting}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded-md bg-canvas-lighter text-zinc-300 text-xs font-medium hover:bg-zinc-700 disabled:opacity-50 transition-colors"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  {isRestarting ? "Restarting..." : "Restart Session"}
+                </button>
+                <button
+                  onClick={() => setShowRestartOptions(!showRestartOptions)}
+                  className={`px-2 py-1.5 rounded-md text-xs transition-colors ${
+                    showRestartOptions
+                      ? "bg-zinc-600 text-white"
+                      : "bg-canvas-lighter text-zinc-400 hover:text-white hover:bg-zinc-700"
+                  }`}
+                >
+                  {showRestartOptions ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </button>
+              </div>
+              {showRestartOptions && (
+                <div className="space-y-1.5">
+                  <input
+                    type="text"
+                    value={restartArgs}
+                    onChange={(e) => setRestartArgs(e.target.value)}
+                    placeholder="Arguments (e.g. --model opus --resume)"
+                    className="w-full px-3 py-1.5 rounded-md bg-canvas border border-canvas-lighter text-white text-xs placeholder-zinc-500 focus:outline-none focus:border-zinc-500 font-mono"
+                  />
+                  <p className="text-[10px] text-zinc-500 font-mono">
+                    {getBaseCommand(session?.command || "")}{restartArgs ? ` ${restartArgs}` : ""}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -366,14 +436,119 @@ export function Sidebar() {
                 <div className="w-2.5 h-2.5 rounded-full bg-[#27CA40]" />
               </div>
             </div>
+
             <div className="flex-1 min-h-0 bg-[#0d0d0d]">
-              <Terminal 
-                key={`${session.sessionId}-${terminalKey}`} 
-                sessionId={session.sessionId} 
-                color={displayColor} 
+              <Terminal
+                key={`${session.sessionId}-${terminalKey}`}
+                sessionId={session.sessionId}
+                color={displayColor}
+                nodeId={selectedNodeId!}
               />
             </div>
+
+            {/* Enable metrics button - shown below terminal when no metrics */}
+            {session.agentId === "claude" && !session.metrics && (
+              <div className="flex-shrink-0 px-3 py-2 border-t border-canvas-lighter bg-purple-500/5">
+                <button
+                  onClick={() => {
+                    const ws = new WebSocket(`${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws?sessionId=${session.sessionId}`);
+                    ws.onopen = () => {
+                      const prompt = `/statusline Create a statusline showing: model name, directory, lines added (+green) and removed (-red), context %, and cost. At the end include [OPENUI:{"m":"MODEL","c":COST,"la":ADDED,"lr":REMOVED,"cp":CONTEXT%,"it":IN_TOKENS,"ot":OUT_TOKENS,"s":"STATE"}] where STATE is idle/asking/working. Use jq to parse JSON. Make it colorful and readable.`;
+                      ws.send(JSON.stringify({ type: "input", data: prompt + "\r" }));
+                      ws.close();
+                    };
+                  }}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-md bg-purple-500/20 text-purple-300 text-xs font-medium hover:bg-purple-500/30 transition-colors border border-purple-500/30"
+                >
+                  <BarChart3 className="w-3 h-3" />
+                  Enable Metrics (statusline)
+                </button>
+              </div>
+            )}
           </div>
+
+          {/* Metrics Panel */}
+          {session.metrics && (
+            <div className="flex-shrink-0 border-t border-canvas-lighter bg-canvas-dark">
+              <div className="px-4 py-3">
+                <div className="flex items-center gap-2 mb-3">
+                  <Activity className="w-3.5 h-3.5 text-purple-400" />
+                  <span className="text-xs font-medium text-zinc-300">Session Metrics</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Context Usage */}
+                  <div className="bg-canvas rounded-lg p-2.5">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <BarChart3 className="w-3 h-3 text-zinc-500" />
+                      <span className="text-[10px] text-zinc-500">Context</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-2 bg-zinc-700 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{
+                            width: `${Math.min(session.metrics.contextPercent, 100)}%`,
+                            backgroundColor: session.metrics.contextPercent > 80 ? "#EF4444" : session.metrics.contextPercent > 50 ? "#FBBF24" : "#22C55E"
+                          }}
+                        />
+                      </div>
+                      <span className="text-xs font-mono text-zinc-300">{Math.round(session.metrics.contextPercent)}%</span>
+                    </div>
+                  </div>
+
+                  {/* Cost */}
+                  <div className="bg-canvas rounded-lg p-2.5">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <DollarSign className="w-3 h-3 text-zinc-500" />
+                      <span className="text-[10px] text-zinc-500">Cost</span>
+                    </div>
+                    <span className="text-sm font-mono text-zinc-300">${session.metrics.cost.toFixed(4)}</span>
+                  </div>
+
+                  {/* Lines Changed */}
+                  <div className="bg-canvas rounded-lg p-2.5">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <FileCode className="w-3 h-3 text-zinc-500" />
+                      <span className="text-[10px] text-zinc-500">Lines Changed</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-mono text-green-400">+{session.metrics.linesAdded}</span>
+                      <span className="text-sm font-mono text-red-400">-{session.metrics.linesRemoved}</span>
+                    </div>
+                  </div>
+
+                  {/* Tokens */}
+                  <div className="bg-canvas rounded-lg p-2.5">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Activity className="w-3 h-3 text-zinc-500" />
+                      <span className="text-[10px] text-zinc-500">Tokens</span>
+                    </div>
+                    <div className="text-[10px] font-mono text-zinc-400">
+                      <span className="text-blue-400">{(session.metrics.inputTokens / 1000).toFixed(1)}k</span>
+                      {" → "}
+                      <span className="text-purple-400">{(session.metrics.outputTokens / 1000).toFixed(1)}k</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Reconfigure button */}
+                <button
+                  onClick={() => {
+                    const ws = new WebSocket(`${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws?sessionId=${session.sessionId}`);
+                    ws.onopen = () => {
+                      const prompt = `/statusline Create a statusline showing: model name, directory, lines added (+green) and removed (-red), context %, and cost. At the end include [OPENUI:{"m":"MODEL","c":COST,"la":ADDED,"lr":REMOVED,"cp":CONTEXT%,"it":IN_TOKENS,"ot":OUT_TOKENS,"s":"STATE"}] where STATE is idle/asking/working. Use jq to parse JSON. Make it colorful and readable.`;
+                      ws.send(JSON.stringify({ type: "input", data: prompt + "\r" }));
+                      ws.close();
+                    };
+                  }}
+                  className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-md bg-canvas text-zinc-500 text-[10px] font-medium hover:text-zinc-300 hover:bg-canvas-lighter transition-colors"
+                >
+                  <BarChart3 className="w-3 h-3" />
+                  Reconfigure Statusline
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Details */}
           <div className="flex-shrink-0 border-t border-canvas-lighter">

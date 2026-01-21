@@ -17,28 +17,32 @@ export function useAgentNodeState(
   const [status, setStatus] = useState<AgentStatus>(session?.status || "idle");
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Poll for status updates
+  // Poll for status and metrics updates
   useEffect(() => {
     const sessionId = session?.sessionId || nodeData.sessionId;
     if (!sessionId) return;
 
-    const pollStatus = async () => {
+    const pollData = async () => {
       try {
-        const res = await fetch(`/api/sessions/${sessionId}/status`);
+        // Fetch full session data which includes metrics
+        const res = await fetch(`/api/sessions`);
         if (res.ok) {
-          const data = await res.json();
-          if (data.status) {
-            setStatus(data.status);
-            if (session) {
-              updateSession(id, { status: data.status, isRestored: data.isRestored });
-            }
+          const sessions = await res.json();
+          const sessionData = sessions.find((s: any) => s.sessionId === sessionId);
+          if (sessionData) {
+            setStatus(sessionData.status);
+            updateSession(id, {
+              status: sessionData.status,
+              isRestored: sessionData.isRestored,
+              metrics: sessionData.metrics,
+            });
           }
         }
       } catch (e) {}
     };
 
-    pollStatus();
-    pollIntervalRef.current = setInterval(pollStatus, 1500);
+    pollData();
+    pollIntervalRef.current = setInterval(pollData, 2000);
 
     return () => {
       if (pollIntervalRef.current) {

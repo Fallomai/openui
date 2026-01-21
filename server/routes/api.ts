@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Agent } from "../types";
-import { sessions, createSession, deleteSession } from "../services/sessionManager";
-import { loadState, saveState } from "../services/persistence";
+import { sessions, createSession, deleteSession, scanBufferForMetrics } from "../services/sessionManager";
+import { loadState, saveState, savePositions, getDataDir } from "../services/persistence";
 import { detectStatus } from "../services/statusDetector";
 
 const LAUNCH_CWD = process.env.LAUNCH_CWD || process.cwd();
@@ -9,7 +9,14 @@ const LAUNCH_CWD = process.env.LAUNCH_CWD || process.cwd();
 export const apiRoutes = new Hono();
 
 apiRoutes.get("/config", (c) => {
-  return c.json({ launchCwd: LAUNCH_CWD });
+  return c.json({ launchCwd: LAUNCH_CWD, dataDir: getDataDir() });
+});
+
+// Statusline setup prompt for Claude Code metrics integration
+const STATUSLINE_PROMPT = `/statusline Create a custom status line that outputs metrics for OpenUI integration. It should show model name, directory, lines changed, context %, and cost. At the end include: [OPENUI:{"m":"MODEL","c":COST,"la":LINES_ADDED,"lr":LINES_REMOVED,"cp":CONTEXT_PERCENT,"it":INPUT_TOKENS,"ot":OUTPUT_TOKENS,"s":"STATE"}] where STATE is "idle", "asking", or "working" based on the current claude state. Use jq to parse the JSON input. Make the script and save it.`;
+
+apiRoutes.get("/statusline-prompt", (c) => {
+  return c.json({ prompt: STATUSLINE_PROMPT });
 });
 
 apiRoutes.get("/agents", (c) => {
@@ -37,6 +44,14 @@ apiRoutes.get("/agents", (c) => {
 apiRoutes.get("/sessions", (c) => {
   const sessionList = Array.from(sessions.entries()).map(([id, session]) => {
     session.status = detectStatus(session);
+    // Scan buffer for latest metrics if not already set
+    if (session.agentId === "claude") {
+      const scannedMetrics = scanBufferForMetrics(session);
+      if (scannedMetrics) {
+        console.log(`\x1b[38;5;141m[api]\x1b[0m Scanned metrics for ${id}:`, JSON.stringify(scannedMetrics));
+        session.metrics = scannedMetrics;
+      }
+    }
     return {
       sessionId: id,
       nodeId: session.nodeId,
@@ -50,6 +65,7 @@ apiRoutes.get("/sessions", (c) => {
       customColor: session.customColor,
       notes: session.notes,
       isRestored: session.isRestored,
+      metrics: session.metrics,
     };
   });
   return c.json(sessionList);
@@ -80,20 +96,19 @@ apiRoutes.get("/state", (c) => {
 
 apiRoutes.post("/state/positions", async (c) => {
   const { positions } = await c.req.json();
-  const state = loadState();
 
+  // Also update session positions in memory
   for (const [nodeId, pos] of Object.entries(positions)) {
-    const node = state.nodes.find(n => n.nodeId === nodeId);
-    if (node) {
-      node.position = pos as { x: number; y: number };
+    for (const [, session] of sessions) {
+      if (session.nodeId === nodeId) {
+        session.position = pos as { x: number; y: number };
+        break;
+      }
     }
   }
 
-  const { writeFileSync } = await import("fs");
-  const { join } = await import("path");
-  const { homedir } = await import("os");
-  writeFileSync(join(homedir(), ".openui", "state.json"), JSON.stringify(state, null, 2));
-
+  // Save to disk
+  savePositions(positions);
   return c.json({ success: true });
 });
 

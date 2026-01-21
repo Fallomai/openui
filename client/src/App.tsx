@@ -7,6 +7,7 @@ import {
   BackgroundVariant,
   ReactFlowProvider,
   NodeChange,
+  applyNodeChanges,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Plus } from "lucide-react";
@@ -125,37 +126,54 @@ function AppContent() {
       .catch(console.error);
   }, [agents, addSession, setNodes, setStoreNodes]);
 
+  // Helper to save all positions - accepts nodes directly to avoid sync issues
+  const saveAllPositions = useCallback((nodesToSave?: typeof nodes) => {
+    const currentNodes = nodesToSave || useStore.getState().nodes;
+    if (currentNodes.length === 0) return;
+
+    const positions: Record<string, { x: number; y: number }> = {};
+    const GRID_SIZE = 24;
+    currentNodes.forEach((node) => {
+      positions[node.id] = {
+        x: Math.round(node.position.x / GRID_SIZE) * GRID_SIZE,
+        y: Math.round(node.position.y / GRID_SIZE) * GRID_SIZE,
+      };
+    });
+    fetch("/api/state/positions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ positions }),
+    }).catch(console.error);
+  }, [nodes]);
+
+  // Save positions on window close/refresh
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      saveAllPositions();
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [saveAllPositions]);
+
   // Save positions when nodes are moved (snap to grid before saving)
   const handleNodesChange = useCallback((changes: NodeChange[]) => {
     onNodesChange(changes);
 
     const positionChanges = changes.filter(
-      (c) => c.type === "position" && "dragging" in c && !c.dragging
+      (c) => c.type === "position" && "dragging" in c && c.dragging === false
     );
 
     if (positionChanges.length > 0) {
       if (positionUpdateTimeout.current) {
         clearTimeout(positionUpdateTimeout.current);
       }
+      // Compute updated nodes immediately to avoid sync delay issues
+      const updatedNodes = applyNodeChanges(changes, nodes);
       positionUpdateTimeout.current = setTimeout(() => {
-        const currentNodes = useStore.getState().nodes;
-        const positions: Record<string, { x: number; y: number }> = {};
-        const GRID_SIZE = 24;
-        currentNodes.forEach((node) => {
-          // Snap to grid before saving
-          positions[node.id] = {
-            x: Math.round(node.position.x / GRID_SIZE) * GRID_SIZE,
-            y: Math.round(node.position.y / GRID_SIZE) * GRID_SIZE,
-          };
-        });
-        fetch("/api/state/positions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ positions }),
-        }).catch(console.error);
-      }, 500);
+        saveAllPositions(updatedNodes);
+      }, 300);
     }
-  }, [onNodesChange]);
+  }, [onNodesChange, saveAllPositions, nodes]);
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: any) => {

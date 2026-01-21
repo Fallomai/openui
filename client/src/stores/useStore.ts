@@ -12,6 +12,17 @@ export interface Agent {
 
 export type AgentStatus = "starting" | "running" | "waiting_input" | "tool_calling" | "idle" | "disconnected" | "error";
 
+export interface ClaudeMetrics {
+  model: string;
+  cost: number;
+  linesAdded: number;
+  linesRemoved: number;
+  contextPercent: number;
+  inputTokens: number;
+  outputTokens: number;
+  state?: "idle" | "asking" | "working";
+}
+
 export interface AgentSession {
   id: string;
   sessionId: string;
@@ -26,6 +37,7 @@ export interface AgentSession {
   customColor?: string;
   notes?: string;
   isRestored?: boolean;
+  metrics?: ClaudeMetrics;
 }
 
 interface AppState {

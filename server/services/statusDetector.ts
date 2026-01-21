@@ -1,49 +1,6 @@
 import type { Session, AgentStatus } from "../types";
 
-// Parse Claude Code JSON events for accurate state tracking
-export function handleClaudeJsonEvent(session: Session, event: any): AgentStatus {
-  session.lastJsonEvent = event;
-
-  switch (event.type) {
-    case "message_start":
-      return "running";
-
-    case "content_block_start":
-      if (event.content_block?.type === "tool_use") {
-        session.currentTool = event.content_block.name;
-        if (event.content_block.name === "AskUserQuestion") {
-          return "waiting_input";
-        }
-        return "tool_calling";
-      }
-      return "running";
-
-    case "content_block_delta":
-      if (event.delta?.type === "text_delta") {
-        return "running";
-      }
-      return session.status;
-
-    case "content_block_stop":
-      return session.status;
-
-    case "message_stop":
-      if (event.stop_reason === "end_turn") {
-        return "idle";
-      } else if (event.stop_reason === "tool_use") {
-        if (session.currentTool === "AskUserQuestion") {
-          return "waiting_input";
-        }
-        return "idle";
-      }
-      return "idle";
-
-    default:
-      return session.status;
-  }
-}
-
-// Status detection fallback for OpenCode (text-based)
+// Status detection via text pattern matching
 export function detectStatus(session: Session): AgentStatus {
   if (session.isRestored || !session.pty) {
     return "disconnected";

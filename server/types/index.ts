@@ -10,6 +10,7 @@ export interface Session {
   command: string;
   cwd: string;
   gitBranch?: string;
+  worktreePath?: string;
   createdAt: string;
   clients: Set<ServerWebSocket<WebSocketData>>;
   outputBuffer: string[];
@@ -23,6 +24,29 @@ export interface Session {
   nodeId: string;
   isRestored?: boolean;
   metrics?: ClaudeMetrics;
+  // Linear ticket info
+  ticketId?: string;
+  ticketTitle?: string;
+  ticketUrl?: string;
+}
+
+export interface LinearTicket {
+  id: string;
+  identifier: string;
+  title: string;
+  url: string;
+  state: { name: string; color: string };
+  priority: number;
+  assignee?: { name: string };
+  team?: { name: string; key: string };
+}
+
+export interface LinearConfig {
+  apiKey?: string;
+  defaultTeamId?: string;
+  defaultBaseBranch?: string;
+  createWorktree?: boolean;
+  ticketPromptTemplate?: string;
 }
 
 export interface ClaudeMetrics {

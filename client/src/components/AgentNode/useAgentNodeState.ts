@@ -36,6 +36,8 @@ export function useAgentNodeState(
               isRestored: sessionData.isRestored,
               metrics: sessionData.metrics,
               gitBranch: sessionData.gitBranch,
+              ticketId: sessionData.ticketId,
+              ticketTitle: sessionData.ticketTitle,
             });
           }
         }

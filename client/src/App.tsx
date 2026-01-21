@@ -16,7 +16,7 @@ import { useStore } from "./stores/useStore";
 import { AgentNode } from "./components/AgentNode/index";
 import { CategoryNode } from "./components/CategoryNode";
 import { Sidebar } from "./components/Sidebar";
-import { AddAgentModal } from "./components/AddAgentModal";
+import { NewSessionModal } from "./components/NewSessionModal";
 import { Header } from "./components/Header";
 import { CanvasControls } from "./components/CanvasControls";
 
@@ -35,7 +35,13 @@ function AppContent() {
     setSidebarOpen,
     addSession,
     agents,
+    addAgentModalOpen,
     setAddAgentModalOpen,
+    newSessionModalOpen,
+    setNewSessionModalOpen,
+    newSessionForNodeId,
+    setNewSessionForNodeId,
+    sessions,
   } = useStore();
 
   const [nodes, setNodes, onNodesChange] = useNodesState(storeNodes);
@@ -119,6 +125,8 @@ function AppContent() {
             customColor: session.customColor,
             notes: session.notes,
             isRestored: session.isRestored,
+            ticketId: session.ticketId,
+            ticketTitle: session.ticketTitle,
           });
 
           restoredNodes.push({
@@ -295,7 +303,16 @@ function AppContent() {
         <Sidebar />
       </div>
 
-      <AddAgentModal />
+      <NewSessionModal
+        open={addAgentModalOpen || newSessionModalOpen}
+        onClose={() => {
+          setAddAgentModalOpen(false);
+          setNewSessionModalOpen(false);
+          setNewSessionForNodeId(null);
+        }}
+        existingSession={newSessionForNodeId ? sessions.get(newSessionForNodeId) : undefined}
+        existingNodeId={newSessionForNodeId || undefined}
+      />
     </div>
   );
 }

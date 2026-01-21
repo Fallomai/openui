@@ -39,6 +39,9 @@ export interface AgentSession {
   notes?: string;
   isRestored?: boolean;
   metrics?: ClaudeMetrics;
+  // Linear ticket info
+  ticketId?: string;
+  ticketTitle?: string;
 }
 
 interface AppState {
@@ -70,6 +73,10 @@ interface AppState {
   setSidebarOpen: (open: boolean) => void;
   addAgentModalOpen: boolean;
   setAddAgentModalOpen: (open: boolean) => void;
+  newSessionModalOpen: boolean;
+  setNewSessionModalOpen: (open: boolean) => void;
+  newSessionForNodeId: string | null;
+  setNewSessionForNodeId: (nodeId: string | null) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -127,4 +134,8 @@ export const useStore = create<AppState>((set) => ({
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   addAgentModalOpen: false,
   setAddAgentModalOpen: (open) => set({ addAgentModalOpen: open }),
+  newSessionModalOpen: false,
+  setNewSessionModalOpen: (open) => set({ newSessionModalOpen: open }),
+  newSessionForNodeId: null,
+  setNewSessionForNodeId: (nodeId) => set({ newSessionForNodeId: nodeId }),
 }));

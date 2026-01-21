@@ -15,13 +15,11 @@ import {
   Bot,
   Brain,
   Wand2,
-  ChevronDown,
-  ChevronUp,
   BarChart3,
   Activity,
   DollarSign,
   FileCode,
-  GitBranch
+  GitBranch,
 } from "lucide-react";
 import { useStore, AgentStatus } from "../stores/useStore";
 import { Terminal } from "./Terminal";
@@ -29,9 +27,9 @@ import { Terminal } from "./Terminal";
 const statusConfig: Record<AgentStatus, { label: string; color: string }> = {
   starting: { label: "Starting", color: "#FBBF24" },
   running: { label: "Running", color: "#22C55E" },
-  waiting_input: { label: "Waiting for input", color: "#F97316" },
+  waiting_input: { label: "Waiting for input", color: "#FBBF24" },
   tool_calling: { label: "Tool Calling", color: "#8B5CF6" },
-  idle: { label: "Waiting for instruction", color: "#FBBF24" },
+  idle: { label: "Idle", color: "#6B7280" },
   disconnected: { label: "Disconnected", color: "#EF4444" },
   error: { label: "Error", color: "#EF4444" },
 };
@@ -52,29 +50,28 @@ const iconOptions = [
 ];
 
 export function Sidebar() {
-  const { 
-    sidebarOpen, 
-    setSidebarOpen, 
-    selectedNodeId, 
-    sessions, 
+  const {
+    sidebarOpen,
+    setSidebarOpen,
+    selectedNodeId,
+    sessions,
     setSelectedNodeId,
     updateSession,
     updateNode,
     nodes,
+    setNewSessionModalOpen,
+    setNewSessionForNodeId,
   } = useStore();
 
   const session = selectedNodeId ? sessions.get(selectedNodeId) : null;
   const node = selectedNodeId ? nodes.find(n => n.id === selectedNodeId) : null;
-  
+
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [editColor, setEditColor] = useState("");
   const [editIcon, setEditIcon] = useState("");
-  const [isRestarting, setIsRestarting] = useState(false);
   const [terminalKey, setTerminalKey] = useState(0);
-  const [showRestartOptions, setShowRestartOptions] = useState(false);
-  const [restartArgs, setRestartArgs] = useState("");
 
   // Reset edit state when session changes (but NOT when nodes change)
   useEffect(() => {
@@ -97,57 +94,10 @@ export function Sidebar() {
     setIsEditing(false);
   };
 
-  // Extract base command (without args) from session command
-  const getBaseCommand = (cmd: string) => {
-    const parts = cmd.split(' ');
-    return parts[0]; // e.g. "claude" or "opencode"
-  };
-
-  const handleSpawnFresh = async (withArgs?: string) => {
-    if (!session?.sessionId || !selectedNodeId) return;
-
-    setIsRestarting(true);
-    try {
-      // Delete old session
-      await fetch(`/api/sessions/${session.sessionId}`, { method: "DELETE" });
-
-      // Build command with optional args
-      const baseCommand = getBaseCommand(session.command);
-      const finalCommand = withArgs ? `${baseCommand} ${withArgs}` : baseCommand;
-
-      // Create new session with same settings
-      const res = await fetch("/api/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          agentId: session.agentId,
-          agentName: session.agentName,
-          command: finalCommand,
-          cwd: session.cwd,
-          nodeId: selectedNodeId,
-          customName: session.customName,
-          customColor: session.customColor,
-        }),
-      });
-
-      if (res.ok) {
-        const { sessionId: newSessionId } = await res.json();
-        // Update session with new sessionId and command
-        updateSession(selectedNodeId, {
-          sessionId: newSessionId,
-          command: finalCommand,
-          status: "starting",
-          isRestored: false
-        });
-        // Force terminal to reconnect
-        setTerminalKey(k => k + 1);
-        setShowRestartOptions(false);
-        setRestartArgs("");
-      }
-    } catch (e) {
-      console.error("Failed to spawn fresh:", e);
-    } finally {
-      setIsRestarting(false);
+  const handleNewSession = () => {
+    if (selectedNodeId) {
+      setNewSessionForNodeId(selectedNodeId);
+      setNewSessionModalOpen(true);
     }
   };
 
@@ -210,40 +160,16 @@ export function Sidebar() {
           {isDisconnected && (
             <div className="flex-shrink-0 px-4 py-3 bg-red-500/10 border-b border-red-500/20">
               <div className="space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm text-red-400 font-medium">Session Disconnected</p>
-                    <p className="text-xs text-red-400/70 mt-0.5">The agent was stopped. Spawn a fresh session.</p>
-                  </div>
-                  <button
-                    onClick={() => setShowRestartOptions(!showRestartOptions)}
-                    className="flex items-center gap-1 px-2 py-1 rounded text-xs text-red-400 hover:bg-red-500/20 transition-colors"
-                  >
-                    {showRestartOptions ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                    Options
-                  </button>
+                <div>
+                  <p className="text-sm text-red-400 font-medium">Session Disconnected</p>
+                  <p className="text-xs text-red-400/70 mt-0.5">The agent was stopped. Start a new session.</p>
                 </div>
-                {showRestartOptions && (
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      value={restartArgs}
-                      onChange={(e) => setRestartArgs(e.target.value)}
-                      placeholder="Arguments (e.g. --model opus --resume)"
-                      className="w-full px-3 py-1.5 rounded-md bg-canvas border border-red-500/30 text-white text-xs placeholder-zinc-500 focus:outline-none focus:border-red-500/50 font-mono"
-                    />
-                    <p className="text-[10px] text-red-400/50 font-mono">
-                      {getBaseCommand(session?.command || "")}{restartArgs ? ` ${restartArgs}` : ""}
-                    </p>
-                  </div>
-                )}
                 <button
-                  onClick={() => handleSpawnFresh(restartArgs || undefined)}
-                  disabled={isRestarting}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-md bg-red-500 text-white text-sm font-medium hover:bg-red-600 disabled:opacity-50 transition-colors"
+                  onClick={handleNewSession}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-md bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition-colors"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  {isRestarting ? "Starting..." : "Spawn Fresh"}
+                  New Session
                 </button>
               </div>
             </div>
@@ -251,41 +177,14 @@ export function Sidebar() {
 
           {/* Session Management Controls */}
           {!isDisconnected && !isEditing && (
-            <div className="flex-shrink-0 px-4 py-2 border-b border-canvas-lighter space-y-2">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleSpawnFresh(restartArgs || undefined)}
-                  disabled={isRestarting}
-                  className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded-md bg-canvas-lighter text-zinc-300 text-xs font-medium hover:bg-zinc-700 disabled:opacity-50 transition-colors"
-                >
-                  <RotateCcw className="w-3 h-3" />
-                  {isRestarting ? "Restarting..." : "Restart Session"}
-                </button>
-                <button
-                  onClick={() => setShowRestartOptions(!showRestartOptions)}
-                  className={`px-2 py-1.5 rounded-md text-xs transition-colors ${
-                    showRestartOptions
-                      ? "bg-zinc-600 text-white"
-                      : "bg-canvas-lighter text-zinc-400 hover:text-white hover:bg-zinc-700"
-                  }`}
-                >
-                  {showRestartOptions ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                </button>
-              </div>
-              {showRestartOptions && (
-                <div className="space-y-1.5">
-                  <input
-                    type="text"
-                    value={restartArgs}
-                    onChange={(e) => setRestartArgs(e.target.value)}
-                    placeholder="Arguments (e.g. --model opus --resume)"
-                    className="w-full px-3 py-1.5 rounded-md bg-canvas border border-canvas-lighter text-white text-xs placeholder-zinc-500 focus:outline-none focus:border-zinc-500 font-mono"
-                  />
-                  <p className="text-[10px] text-zinc-500 font-mono">
-                    {getBaseCommand(session?.command || "")}{restartArgs ? ` ${restartArgs}` : ""}
-                  </p>
-                </div>
-              )}
+            <div className="flex-shrink-0 px-4 py-2 border-b border-canvas-lighter">
+              <button
+                onClick={handleNewSession}
+                className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-md bg-canvas-lighter text-zinc-300 text-xs font-medium hover:bg-zinc-700 transition-colors"
+              >
+                <RotateCcw className="w-3 h-3" />
+                New Session
+              </button>
             </div>
           )}
 

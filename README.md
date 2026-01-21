@@ -47,7 +47,7 @@ bunx @fallom/openui
 ### Canvas Management
 - Infinite canvas for organizing agents
 - Drag-and-drop positioning with snap-to-grid
-- Categories (folders) for grouping agents by team/project
+- Categories (folders) for grouping agents by team/project with persistent sizing
 - Custom names, colors, and icons per agent
 - Persistent layout across restarts
 
@@ -56,11 +56,13 @@ bunx @fallom/openui
 - Claude metrics: Model, cost, context %, tokens, lines changed
 - Git branch display per agent
 - Directory/repo info
+- Redesigned node cards for better at-a-glance visibility
 
 ### Session Management
-- Spawn multiple agents at once
+- Spawn multiple agents at once (placed in horizontal row beside existing nodes)
 - Restart sessions with custom arguments
 - Session persistence and restore
+- Version check and empty state UI
 
 ### Coming Soon: Linear Integration
 - Start sessions directly from Linear tickets

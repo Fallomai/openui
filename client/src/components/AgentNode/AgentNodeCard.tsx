@@ -1,10 +1,10 @@
-import { MessageSquare, WifiOff, GitBranch, Loader2 } from "lucide-react";
+import { MessageSquare, WifiOff, GitBranch, Loader2, Folder } from "lucide-react";
 import { AgentStatus, ClaudeMetrics } from "../../stores/useStore";
 
 const statusConfig: Record<AgentStatus, { label: string; color: string; bgColor: string; animate?: boolean; attention?: boolean }> = {
   starting: { label: "Starting", color: "#FBBF24", bgColor: "#FBBF2420", animate: true },
   running: { label: "Working", color: "#22C55E", bgColor: "#22C55E20", animate: true },
-  waiting_input: { label: "Needs Input", color: "#F97316", bgColor: "#F9731630", animate: false, attention: true },
+  waiting_input: { label: "Waiting for input", color: "#FBBF24", bgColor: "#FBBF2420", animate: false, attention: true },
   tool_calling: { label: "Using Tools", color: "#8B5CF6", bgColor: "#8B5CF620", animate: true },
   idle: { label: "Idle", color: "#6B7280", bgColor: "#6B728020", animate: false },
   disconnected: { label: "Offline", color: "#EF4444", bgColor: "#EF444420", animate: false, attention: true },
@@ -47,19 +47,19 @@ export function AgentNodeCard({
   return (
     <div
       className={`relative w-[220px] rounded-lg transition-all duration-200 cursor-pointer ${
-        selected ? "ring-2 ring-white/30" : ""
+        selected ? "ring-1 ring-white/20" : ""
       }`}
       style={{
         backgroundColor: "#262626",
         boxShadow: needsAttention
-          ? `0 0 0 2px ${statusInfo.color}, 0 4px 20px rgba(0, 0, 0, 0.5)`
+          ? `0 0 0 1px ${statusInfo.color}80, 0 0 12px ${statusInfo.color}40, 0 2px 8px rgba(0, 0, 0, 0.3)`
           : selected
-          ? "0 4px 20px rgba(0, 0, 0, 0.5)"
+          ? "0 4px 16px rgba(0, 0, 0, 0.4)"
           : "0 2px 8px rgba(0, 0, 0, 0.3)",
       }}
     >
       {/* Color bar at top */}
-      <div className="h-1.5 rounded-t-lg" style={{ backgroundColor: displayColor }} />
+      <div className="h-1 rounded-t-lg" style={{ backgroundColor: displayColor }} />
 
       {/* Status banner - prominent when needs attention */}
       <div
@@ -114,11 +114,21 @@ export function AgentNodeCard({
           </div>
         )}
 
-        {/* Branch */}
-        {gitBranch && (
-          <div className="mt-2 flex items-center gap-1.5">
-            <GitBranch className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
-            <span className="text-[11px] text-purple-400 font-mono truncate">{gitBranch}</span>
+        {/* Repo & Branch */}
+        {(dirName || gitBranch) && (
+          <div className="mt-2 space-y-1">
+            {dirName && (
+              <div className="flex items-center gap-1.5">
+                <Folder className="w-3.5 h-3.5 text-zinc-500 flex-shrink-0" />
+                <span className="text-[11px] text-zinc-400 font-mono truncate">{dirName}</span>
+              </div>
+            )}
+            {gitBranch && (
+              <div className="flex items-center gap-1.5">
+                <GitBranch className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
+                <span className="text-[11px] text-purple-400 font-mono truncate">{gitBranch}</span>
+              </div>
+            )}
           </div>
         )}
 
@@ -154,12 +164,6 @@ export function AgentNodeCard({
           </div>
         )}
 
-        {/* Directory - subtle at bottom */}
-        {dirName && !gitBranch && (
-          <div className="mt-2 text-[10px] text-zinc-600 truncate">
-            {dirName}
-          </div>
-        )}
       </div>
     </div>
   );

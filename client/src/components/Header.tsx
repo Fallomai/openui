@@ -1,9 +1,12 @@
-import { Plus, Folder } from "lucide-react";
+import { useState } from "react";
+import { Plus, Folder, Settings } from "lucide-react";
 import { motion } from "framer-motion";
 import { useStore } from "../stores/useStore";
+import { SettingsModal } from "./SettingsModal";
 
 export function Header() {
   const { setAddAgentModalOpen, sessions, launchCwd } = useStore();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
     <header className="h-14 px-4 flex items-center justify-between border-b border-canvas-lighter bg-canvas-dark">
@@ -32,16 +35,27 @@ export function Header() {
         </div>
       </div>
 
-      {/* Add Agent Button */}
-      <motion.button
-        onClick={() => setAddAgentModalOpen(true)}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white text-canvas text-sm font-medium hover:bg-zinc-100 transition-colors"
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-      >
-        <Plus className="w-4 h-4" />
-        New Agent
-      </motion.button>
+      {/* Right side buttons */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setSettingsOpen(true)}
+          className="p-2 rounded-md text-zinc-400 hover:text-white hover:bg-canvas-lighter transition-colors"
+          title="Settings"
+        >
+          <Settings className="w-4 h-4" />
+        </button>
+        <motion.button
+          onClick={() => setAddAgentModalOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white text-canvas text-sm font-medium hover:bg-zinc-100 transition-colors"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+        >
+          <Plus className="w-4 h-4" />
+          New Agent
+        </motion.button>
+      </div>
+
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </header>
   );
 }

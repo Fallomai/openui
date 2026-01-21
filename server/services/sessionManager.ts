@@ -1,5 +1,7 @@
 import { spawnSync } from "bun";
 import { spawn as spawnPty } from "bun-pty";
+import { existsSync, mkdirSync } from "fs";
+import { join, basename } from "path";
 import type { Session, ClaudeMetrics } from "../types";
 import { loadBuffer } from "./persistence";
 import { detectStatus } from "./statusDetector";
@@ -19,6 +21,108 @@ function getGitBranch(cwd: string): string | null {
     // Not a git repo or git not available
   }
   return null;
+}
+
+// Get git root directory
+function getGitRoot(cwd: string): string | null {
+  try {
+    const result = spawnSync(["git", "rev-parse", "--show-toplevel"], {
+      cwd,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    if (result.exitCode === 0) {
+      return result.stdout.toString().trim();
+    }
+  } catch {
+    // Not a git repo
+  }
+  return null;
+}
+
+// Create a git worktree for a branch
+export function createWorktree(params: {
+  cwd: string;
+  branchName: string;
+  baseBranch: string;
+}): { success: boolean; worktreePath?: string; error?: string } {
+  const { cwd, branchName, baseBranch } = params;
+  const gitRoot = getGitRoot(cwd);
+
+  if (!gitRoot) {
+    return { success: false, error: "Not a git repository" };
+  }
+
+  // Create worktrees directory beside the main repo
+  const repoName = basename(gitRoot);
+  const worktreesDir = join(gitRoot, "..", `${repoName}-worktrees`);
+
+  if (!existsSync(worktreesDir)) {
+    mkdirSync(worktreesDir, { recursive: true });
+  }
+
+  // Sanitize branch name for directory
+  const dirName = branchName.replace(/\//g, "-");
+  const worktreePath = join(worktreesDir, dirName);
+
+  // Check if worktree already exists
+  if (existsSync(worktreePath)) {
+    console.log(`\x1b[38;5;141m[worktree]\x1b[0m Worktree already exists: ${worktreePath}`);
+    return { success: true, worktreePath };
+  }
+
+  // Fetch latest from remote first
+  console.log(`\x1b[38;5;141m[worktree]\x1b[0m Fetching from remote...`);
+  spawnSync(["git", "fetch", "origin"], { cwd: gitRoot, stdout: "pipe", stderr: "pipe" });
+
+  // Check if branch exists locally or remotely
+  const localBranch = spawnSync(["git", "rev-parse", "--verify", branchName], {
+    cwd: gitRoot,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+
+  const remoteBranch = spawnSync(["git", "rev-parse", "--verify", `origin/${branchName}`], {
+    cwd: gitRoot,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+
+  let result;
+  if (localBranch.exitCode === 0) {
+    // Branch exists locally, just add worktree
+    console.log(`\x1b[38;5;141m[worktree]\x1b[0m Creating worktree for existing branch: ${branchName}`);
+    result = spawnSync(["git", "worktree", "add", worktreePath, branchName], {
+      cwd: gitRoot,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+  } else if (remoteBranch.exitCode === 0) {
+    // Branch exists on remote, track it
+    console.log(`\x1b[38;5;141m[worktree]\x1b[0m Creating worktree tracking remote branch: ${branchName}`);
+    result = spawnSync(["git", "worktree", "add", "--track", "-b", branchName, worktreePath, `origin/${branchName}`], {
+      cwd: gitRoot,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+  } else {
+    // Create new branch from base
+    console.log(`\x1b[38;5;141m[worktree]\x1b[0m Creating new worktree with branch: ${branchName} from ${baseBranch}`);
+    result = spawnSync(["git", "worktree", "add", "-b", branchName, worktreePath, `origin/${baseBranch}`], {
+      cwd: gitRoot,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+  }
+
+  if (result.exitCode !== 0) {
+    const stderr = result.stderr.toString();
+    console.error(`\x1b[38;5;141m[worktree]\x1b[0m Failed to create worktree:`, stderr);
+    return { success: false, error: stderr };
+  }
+
+  console.log(`\x1b[38;5;141m[worktree]\x1b[0m Created worktree at: ${worktreePath}`);
+  return { success: true, worktreePath };
 }
 
 // Parse OpenUI metrics from statusline output
@@ -86,26 +190,76 @@ export function createSession(params: {
   nodeId: string;
   customName?: string;
   customColor?: string;
-}) {
-  const { sessionId, agentId, agentName, command, cwd, nodeId, customName, customColor } = params;
+  // Ticket and worktree options
+  ticketId?: string;
+  ticketTitle?: string;
+  ticketUrl?: string;
+  branchName?: string;
+  baseBranch?: string;
+  createWorktreeFlag?: boolean;
+  ticketPromptTemplate?: string;
+}): { session: Session; cwd: string; gitBranch?: string } {
+  const {
+    sessionId,
+    agentId,
+    agentName,
+    command,
+    cwd: originalCwd,
+    nodeId,
+    customName,
+    customColor,
+    ticketId,
+    ticketTitle,
+    ticketUrl,
+    branchName,
+    baseBranch,
+    createWorktreeFlag,
+    ticketPromptTemplate,
+  } = params;
+
+  let workingDir = originalCwd;
+  let worktreePath: string | undefined;
+  let gitBranch: string | null = null;
+
+  // If worktree requested, create it and use that path
+  if (createWorktreeFlag && branchName && baseBranch) {
+    const result = createWorktree({
+      cwd: originalCwd,
+      branchName,
+      baseBranch,
+    });
+    if (result.success && result.worktreePath) {
+      workingDir = result.worktreePath;
+      worktreePath = result.worktreePath;
+      gitBranch = branchName;
+      console.log(`\x1b[38;5;141m[session]\x1b[0m Using worktree: ${workingDir}`);
+    } else {
+      console.error(`\x1b[38;5;141m[session]\x1b[0m Failed to create worktree:`, result.error);
+    }
+  }
+
+  // Get git branch if not already set from worktree
+  if (!gitBranch) {
+    gitBranch = getGitBranch(workingDir);
+  }
 
   const ptyProcess = spawnPty("/bin/bash", [], {
     name: "xterm-256color",
-    cwd,
+    cwd: workingDir,
     env: { ...process.env, TERM: "xterm-256color" },
     rows: 30,
     cols: 120,
   });
 
-  const gitBranch = getGitBranch(cwd);
   const now = Date.now();
   const session: Session = {
     pty: ptyProcess,
     agentId,
     agentName,
     command,
-    cwd,
+    cwd: workingDir,
     gitBranch: gitBranch || undefined,
+    worktreePath,
     createdAt: new Date().toISOString(),
     clients: new Set(),
     outputBuffer: [],
@@ -117,6 +271,9 @@ export function createSession(params: {
     customColor,
     nodeId,
     isRestored: false,
+    ticketId,
+    ticketTitle,
+    ticketUrl,
   };
 
   sessions.set(sessionId, session);
@@ -182,10 +339,24 @@ export function createSession(params: {
   // Run the command
   setTimeout(() => {
     ptyProcess.write(`${command}\r`);
+
+    // If there's a ticket URL, send it to the agent after a delay
+    if (ticketUrl) {
+      setTimeout(() => {
+        // Use custom template or default
+        const defaultTemplate = "Here is the ticket for this session: {{url}}\n\nPlease use the Linear MCP tool or fetch the URL to read the full ticket details before starting work.";
+        const template = ticketPromptTemplate || defaultTemplate;
+        const ticketPrompt = template
+          .replace(/\{\{url\}\}/g, ticketUrl)
+          .replace(/\{\{id\}\}/g, ticketId || "")
+          .replace(/\{\{title\}\}/g, ticketTitle || "");
+        ptyProcess.write(ticketPrompt + "\r");
+      }, 2000);
+    }
   }, 300);
 
-  console.log(`\x1b[38;5;141m[session]\x1b[0m Created ${sessionId} for ${agentName}`);
-  return session;
+  console.log(`\x1b[38;5;141m[session]\x1b[0m Created ${sessionId} for ${agentName}${ticketId ? ` (ticket: ${ticketId})` : ""}`);
+  return { session, cwd: workingDir, gitBranch: gitBranch || undefined };
 }
 
 export function deleteSession(sessionId: string) {

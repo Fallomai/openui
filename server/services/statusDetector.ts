@@ -14,7 +14,7 @@ export function detectStatus(session: Session): AgentStatus {
   const lastChunkLower = lastChunk.toLowerCase();
   const userJustTyped = timeSinceInput < 1000;
 
-  // Question patterns
+  // Question patterns - Claude asking user something
   const questionPatterns = [
     /○/,
     /●.*\d+\s+questions/i,
@@ -32,6 +32,12 @@ export function detectStatus(session: Session): AgentStatus {
     /type.*message/i,
     /waiting.*input/i,
     /press.*enter/i,
+    // Claude Code specific patterns
+    /Do you want to allow/i,
+    /\d+\.\s+Yes/,  // Numbered options like "1. Yes"
+    /\(esc\)/i,     // Options ending with (esc)
+    /don't ask again/i,
+    /tell Claude what to do/i,
   ];
 
   for (const pattern of questionPatterns) {

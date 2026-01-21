@@ -83,47 +83,58 @@ export function Terminal({ sessionId, color, nodeId }: TerminalProps) {
     xtermRef.current = term;
     fitAddonRef.current = fitAddon;
 
-    // Connect WebSocket
+    // Connect WebSocket with small delay to allow session to be ready
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}/ws?sessionId=${sessionId}`;
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
 
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
-    };
-
+    let ws: WebSocket | null = null;
     let isFirstMessage = true;
-    
-    ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.type === "output") {
-          // On first message (buffered history), reset terminal state first
-          if (isFirstMessage) {
-            isFirstMessage = false;
-            // Clear screen, reset attributes, move cursor home
-            term.write("\x1b[2J\x1b[H\x1b[0m");
-          }
-          term.write(msg.data);
-        } else if (msg.type === "metrics") {
-          updateSession(nodeId, { metrics: msg.metrics as ClaudeMetrics });
+
+    const connectWs = () => {
+      if (!mountedRef.current) return;
+
+      ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        if (xtermRef.current) {
+          ws?.send(JSON.stringify({ type: "resize", cols: xtermRef.current.cols, rows: xtermRef.current.rows }));
         }
-      } catch (e) {
-        term.write(event.data);
-      }
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === "output") {
+            // On first message (buffered history), reset terminal state first
+            if (isFirstMessage) {
+              isFirstMessage = false;
+              // Clear screen, reset attributes, move cursor home
+              term.write("\x1b[2J\x1b[H\x1b[0m");
+            }
+            term.write(msg.data);
+          } else if (msg.type === "metrics") {
+            updateSession(nodeId, { metrics: msg.metrics as ClaudeMetrics });
+          }
+        } catch (e) {
+          term.write(event.data);
+        }
+      };
+
+      ws.onerror = () => {
+        // Silently handle errors - don't spam the terminal
+      };
+
+      ws.onclose = () => {
+        // Only show if not intentionally closed
+      };
     };
 
-    ws.onerror = () => {
-      term.write("\r\n\x1b[31mConnection error\x1b[0m\r\n");
-    };
-
-    ws.onclose = () => {
-      // Only show if not intentionally closed
-    };
+    // Small delay to let server session be ready
+    const connectTimeout = setTimeout(connectWs, 100);
 
     term.onData((data) => {
-      if (ws.readyState === WebSocket.OPEN) {
+      if (ws?.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "input", data }));
       }
     });
@@ -133,11 +144,11 @@ export function Terminal({ sessionId, color, nodeId }: TerminalProps) {
         if (fitAddonRef.current) {
           fitAddonRef.current.fit();
         }
-        if (ws.readyState === WebSocket.OPEN && xtermRef.current) {
-          ws.send(JSON.stringify({ 
-            type: "resize", 
-            cols: xtermRef.current.cols, 
-            rows: xtermRef.current.rows 
+        if (ws?.readyState === WebSocket.OPEN && xtermRef.current) {
+          ws.send(JSON.stringify({
+            type: "resize",
+            cols: xtermRef.current.cols,
+            rows: xtermRef.current.rows
           }));
         }
       });
@@ -147,8 +158,9 @@ export function Terminal({ sessionId, color, nodeId }: TerminalProps) {
 
     return () => {
       mountedRef.current = false;
+      clearTimeout(connectTimeout);
       resizeObserver.disconnect();
-      ws.close();
+      ws?.close();
       term.dispose();
     };
   }, [sessionId, color, nodeId, updateSession]);

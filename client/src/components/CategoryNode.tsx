@@ -125,7 +125,7 @@ export function CategoryNode({ id, data, selected }: NodeProps) {
                   <Palette className="w-3 h-3 text-zinc-500 hover:text-white" />
                 </button>
                 {showColorPicker && (
-                  <div className="absolute top-full left-0 mt-1 p-1.5 bg-zinc-800 rounded-md shadow-lg flex gap-1 z-50">
+                  <div className="absolute top-full left-0 mt-1 p-1.5 bg-surface border border-border rounded-md shadow-lg flex gap-1 z-50">
                     {CATEGORY_COLORS.map((color) => (
                       <button
                         key={color}

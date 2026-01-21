@@ -18,6 +18,7 @@ import {
   Home,
   ArrowUp,
   Github,
+  Brain,
 } from "lucide-react";
 import { useStore, Agent, AgentSession } from "../stores/useStore";
 
@@ -25,6 +26,7 @@ const iconMap: Record<string, any> = {
   sparkles: Sparkles,
   code: Code,
   cpu: Cpu,
+  brain: Brain,
 };
 
 interface LinearTicket {
@@ -302,9 +304,9 @@ export function NewSessionModal({
 
     try {
       const workingDir = cwd || (isReplacing ? existingSession?.cwd : null) || launchCwd;
-      const fullCommand = commandArgs
-        ? `${selectedAgent.command} ${commandArgs}`
-        : selectedAgent.command;
+      const fullCommand = selectedAgent.command
+        ? (commandArgs ? `${selectedAgent.command} ${commandArgs}` : selectedAgent.command)
+        : commandArgs;
 
       // If replacing existing session, delete it first
       if (isReplacing && existingSession && existingNodeId) {
@@ -474,15 +476,15 @@ export function NewSessionModal({
             className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
           >
             <div className="pointer-events-auto w-full max-w-lg mx-4">
-              <div className="rounded-xl bg-canvas-light border border-canvas-lighter shadow-2xl overflow-hidden max-h-[85vh] flex flex-col">
+              <div className="rounded-xl bg-surface border border-border shadow-2xl overflow-hidden max-h-[85vh] flex flex-col">
                 {/* Header */}
-                <div className="px-5 py-4 border-b border-canvas-lighter flex items-center justify-between flex-shrink-0">
+                <div className="px-5 py-4 border-b border-border flex items-center justify-between flex-shrink-0">
                   <h2 className="text-base font-semibold text-white">
                     {isReplacing ? "New Session" : "New Agent"}
                   </h2>
                   <button
                     onClick={handleClose}
-                    className="w-7 h-7 rounded flex items-center justify-center text-zinc-500 hover:text-white hover:bg-canvas-lighter transition-colors"
+                    className="w-7 h-7 rounded flex items-center justify-center text-zinc-500 hover:text-white hover:bg-surface-active transition-colors"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -499,7 +501,7 @@ export function NewSessionModal({
                     className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                       activeTab === "blank"
                         ? "bg-white text-canvas"
-                        : "text-zinc-400 hover:text-white hover:bg-canvas-lighter"
+                        : "text-zinc-400 hover:text-white hover:bg-surface-active"
                     }`}
                   >
                     Blank
@@ -515,7 +517,7 @@ export function NewSessionModal({
                         ? "bg-indigo-600 text-white"
                         : linearConfigured === false
                         ? "text-zinc-600 cursor-not-allowed"
-                        : "text-zinc-400 hover:text-white hover:bg-canvas-lighter"
+                        : "text-zinc-400 hover:text-white hover:bg-surface-active"
                     }`}
                   >
                     <Ticket className="w-3.5 h-3.5" />
@@ -529,7 +531,7 @@ export function NewSessionModal({
                     className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
                       activeTab === "github"
                         ? "bg-zinc-700 text-white"
-                        : "text-zinc-400 hover:text-white hover:bg-canvas-lighter"
+                        : "text-zinc-400 hover:text-white hover:bg-surface-active"
                     }`}
                   >
                     <Github className="w-3.5 h-3.5" />
@@ -554,7 +556,7 @@ export function NewSessionModal({
                               className={`relative p-3 rounded-md text-left transition-all border ${
                                 isSelected
                                   ? "border-white/20 bg-surface-active"
-                                  : "border-canvas-lighter hover:border-canvas-lighter hover:bg-surface-hover"
+                                  : "border-border hover:border-border hover:bg-surface-hover"
                               }`}
                             >
                               <div
@@ -586,13 +588,13 @@ export function NewSessionModal({
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 placeholder="Search tickets..."
-                                className="w-full pl-9 pr-3 py-2 rounded-md bg-canvas border border-canvas-lighter text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors"
+                                className="w-full pl-9 pr-3 py-2 rounded-md bg-canvas border border-border text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors"
                               />
                             </div>
                           </form>
 
                           {/* Ticket list */}
-                          <div className="max-h-48 overflow-y-auto rounded-md border border-canvas-lighter">
+                          <div className="max-h-48 overflow-y-auto rounded-md border border-border">
                             {ticketsLoading ? (
                               <div className="p-6 text-center">
                                 <Loader2 className="w-5 h-5 text-zinc-500 animate-spin mx-auto" />
@@ -611,7 +613,7 @@ export function NewSessionModal({
                                 <button
                                   key={ticket.id}
                                   onClick={() => setSelectedTicket(ticket)}
-                                  className="w-full p-3 hover:bg-canvas text-left transition-colors flex items-start gap-2 border-b border-canvas-lighter last:border-b-0"
+                                  className="w-full p-3 hover:bg-canvas text-left transition-colors flex items-start gap-2 border-b border-border last:border-b-0"
                                 >
                                   <div
                                     className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0"
@@ -667,7 +669,7 @@ export function NewSessionModal({
                               type="text"
                               value={branchName}
                               onChange={(e) => setBranchName(e.target.value)}
-                              className="w-full px-3 py-2 rounded-md bg-canvas border border-canvas-lighter text-white text-sm font-mono placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors"
+                              className="w-full px-3 py-2 rounded-md bg-canvas border border-border text-white text-sm font-mono placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors"
                             />
                           </div>
 
@@ -678,7 +680,7 @@ export function NewSessionModal({
                               value={baseBranch}
                               onChange={(e) => setBaseBranch(e.target.value)}
                               placeholder="main"
-                              className="w-full px-3 py-2 rounded-md bg-canvas border border-canvas-lighter text-white text-sm font-mono placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors"
+                              className="w-full px-3 py-2 rounded-md bg-canvas border border-border text-white text-sm font-mono placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors"
                             />
                           </div>
 
@@ -711,7 +713,7 @@ export function NewSessionModal({
                                   value={githubRepoUrl}
                                   onChange={(e) => setGithubRepoUrl(e.target.value)}
                                   placeholder="https://github.com/owner/repo"
-                                  className="flex-1 px-3 py-2 rounded-md bg-canvas border border-canvas-lighter text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors font-mono"
+                                  className="flex-1 px-3 py-2 rounded-md bg-canvas border border-border text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors font-mono"
                                 />
                                 <button
                                   type="submit"
@@ -726,7 +728,7 @@ export function NewSessionModal({
 
                           {/* Issue list */}
                           {(githubIssues.length > 0 || githubError) && (
-                            <div className="max-h-48 overflow-y-auto rounded-md border border-canvas-lighter">
+                            <div className="max-h-48 overflow-y-auto rounded-md border border-border">
                               {githubLoading ? (
                                 <div className="p-6 text-center">
                                   <Loader2 className="w-5 h-5 text-zinc-500 animate-spin mx-auto" />
@@ -745,7 +747,7 @@ export function NewSessionModal({
                                   <button
                                     key={issue.id}
                                     onClick={() => setSelectedGithubIssue(issue)}
-                                    className="w-full p-3 hover:bg-canvas text-left transition-colors flex items-start gap-2 border-b border-canvas-lighter last:border-b-0"
+                                    className="w-full p-3 hover:bg-canvas text-left transition-colors flex items-start gap-2 border-b border-border last:border-b-0"
                                   >
                                     <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 bg-green-500" />
                                     <div className="flex-1 min-w-0">
@@ -802,7 +804,7 @@ export function NewSessionModal({
                               type="text"
                               value={branchName}
                               onChange={(e) => setBranchName(e.target.value)}
-                              className="w-full px-3 py-2 rounded-md bg-canvas border border-canvas-lighter text-white text-sm font-mono placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors"
+                              className="w-full px-3 py-2 rounded-md bg-canvas border border-border text-white text-sm font-mono placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors"
                             />
                           </div>
 
@@ -813,7 +815,7 @@ export function NewSessionModal({
                               value={baseBranch}
                               onChange={(e) => setBaseBranch(e.target.value)}
                               placeholder="main"
-                              className="w-full px-3 py-2 rounded-md bg-canvas border border-canvas-lighter text-white text-sm font-mono placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors"
+                              className="w-full px-3 py-2 rounded-md bg-canvas border border-border text-white text-sm font-mono placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors"
                             />
                           </div>
 
@@ -841,7 +843,7 @@ export function NewSessionModal({
                           value={customName}
                           onChange={(e) => setCustomName(e.target.value)}
                           placeholder={selectedAgent?.name || "My Agent"}
-                          className="w-full px-3 py-2 rounded-md bg-canvas border border-canvas-lighter text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors"
+                          className="w-full px-3 py-2 rounded-md bg-canvas border border-border text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors"
                         />
                       </div>
                       <div className="w-28 space-y-2">
@@ -849,7 +851,7 @@ export function NewSessionModal({
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => setCount(Math.max(1, count - 1))}
-                            className="w-8 h-9 rounded-md bg-canvas border border-canvas-lighter text-zinc-400 hover:text-white hover:bg-canvas-lighter transition-colors flex items-center justify-center"
+                            className="w-8 h-9 rounded-md bg-canvas border border-border text-zinc-400 hover:text-white hover:bg-surface-active transition-colors flex items-center justify-center"
                           >
                             <Minus className="w-3 h-3" />
                           </button>
@@ -861,11 +863,11 @@ export function NewSessionModal({
                             }
                             min={1}
                             max={20}
-                            className="w-10 h-9 rounded-md bg-canvas border border-canvas-lighter text-white text-sm text-center focus:outline-none focus:border-zinc-500 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            className="w-10 h-9 rounded-md bg-canvas border border-border text-white text-sm text-center focus:outline-none focus:border-zinc-500 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                           <button
                             onClick={() => setCount(Math.min(20, count + 1))}
-                            className="w-8 h-9 rounded-md bg-canvas border border-canvas-lighter text-zinc-400 hover:text-white hover:bg-canvas-lighter transition-colors flex items-center justify-center"
+                            className="w-8 h-9 rounded-md bg-canvas border border-border text-zinc-400 hover:text-white hover:bg-surface-active transition-colors flex items-center justify-center"
                           >
                             <Plus className="w-3 h-3" />
                           </button>
@@ -878,19 +880,18 @@ export function NewSessionModal({
                   <div className="space-y-2">
                     <label className="text-xs text-zinc-500 flex items-center gap-1.5">
                       <Terminal className="w-3 h-3" />
-                      Arguments (optional)
+                      {selectedAgent?.command ? "Arguments (optional)" : "Command"}
                     </label>
                     <input
                       type="text"
                       value={commandArgs}
                       onChange={(e) => setCommandArgs(e.target.value)}
-                      placeholder="e.g. --model opus or --resume"
-                      className="w-full px-3 py-2 rounded-md bg-canvas border border-canvas-lighter text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors font-mono"
+                      placeholder={selectedAgent?.command ? "e.g. --model opus or --resume" : "e.g. ralph --monitor, ralph-setup, ralph-import"}
+                      className="w-full px-3 py-2 rounded-md bg-canvas border border-border text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors font-mono"
                     />
-                    {selectedAgent && (
+                    {selectedAgent && (selectedAgent.command || commandArgs) && (
                       <p className="text-[10px] text-zinc-600 font-mono">
-                        {selectedAgent.command}
-                        {commandArgs ? ` ${commandArgs}` : ""}
+                        {selectedAgent.command}{selectedAgent.command && commandArgs ? " " : ""}{commandArgs}
                       </p>
                     )}
                   </div>
@@ -907,12 +908,12 @@ export function NewSessionModal({
                         value={cwd}
                         onChange={(e) => setCwd(e.target.value)}
                         placeholder={existingSession?.cwd || launchCwd || "~/"}
-                        className="flex-1 px-3 py-2 rounded-md bg-canvas border border-canvas-lighter text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors font-mono"
+                        className="flex-1 px-3 py-2 rounded-md bg-canvas border border-border text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors font-mono"
                       />
                       <button
                         type="button"
                         onClick={openDirPicker}
-                        className="px-3 py-2 rounded-md bg-canvas border border-canvas-lighter text-zinc-400 hover:text-white hover:bg-canvas-lighter transition-colors"
+                        className="px-3 py-2 rounded-md bg-canvas border border-border text-zinc-400 hover:text-white hover:bg-surface-active transition-colors"
                         title="Browse directories"
                       >
                         <FolderOpen className="w-4 h-4" />
@@ -921,14 +922,14 @@ export function NewSessionModal({
 
                     {/* Directory picker inline panel */}
                     {showDirPicker && (
-                      <div className="rounded-md border border-canvas-lighter bg-canvas overflow-hidden">
+                      <div className="rounded-md border border-border bg-canvas overflow-hidden">
                         {/* Current path header */}
-                        <div className="px-3 py-2 bg-canvas-light border-b border-canvas-lighter flex items-center justify-between">
+                        <div className="px-3 py-2 bg-surface border-b border-border flex items-center justify-between">
                           <div className="flex items-center gap-2 min-w-0 flex-1">
                             {dirBrowseParent && (
                               <button
                                 onClick={() => browsePath(dirBrowseParent)}
-                                className="p-1 rounded hover:bg-canvas-lighter text-zinc-400 hover:text-white transition-colors flex-shrink-0"
+                                className="p-1 rounded hover:bg-surface-active text-zinc-400 hover:text-white transition-colors flex-shrink-0"
                                 title="Go up"
                               >
                                 <ArrowUp className="w-4 h-4" />
@@ -936,7 +937,7 @@ export function NewSessionModal({
                             )}
                             <button
                               onClick={() => browsePath("~")}
-                              className="p-1 rounded hover:bg-canvas-lighter text-zinc-400 hover:text-white transition-colors flex-shrink-0"
+                              className="p-1 rounded hover:bg-surface-active text-zinc-400 hover:text-white transition-colors flex-shrink-0"
                               title="Home directory"
                             >
                               <Home className="w-4 h-4" />
@@ -947,7 +948,7 @@ export function NewSessionModal({
                           </div>
                           <button
                             onClick={() => setShowDirPicker(false)}
-                            className="p-1 rounded hover:bg-canvas-lighter text-zinc-500 hover:text-white transition-colors flex-shrink-0 ml-2"
+                            className="p-1 rounded hover:bg-surface-active text-zinc-500 hover:text-white transition-colors flex-shrink-0 ml-2"
                           >
                             <X className="w-4 h-4" />
                           </button>
@@ -972,18 +973,18 @@ export function NewSessionModal({
                             dirBrowseDirs.map((dir) => (
                               <div
                                 key={dir.path}
-                                className="flex items-center border-b border-canvas-lighter last:border-b-0"
+                                className="flex items-center border-b border-border last:border-b-0"
                               >
                                 <button
                                   onClick={() => browsePath(dir.path)}
-                                  className="flex-1 flex items-center gap-2 px-3 py-2 hover:bg-canvas-lighter transition-colors text-left"
+                                  className="flex-1 flex items-center gap-2 px-3 py-2 hover:bg-surface-active transition-colors text-left"
                                 >
                                   <FolderOpen className="w-4 h-4 text-zinc-500 flex-shrink-0" />
                                   <span className="text-sm text-white truncate">{dir.name}</span>
                                 </button>
                                 <button
                                   onClick={() => selectDirectory(dir.path)}
-                                  className="px-3 py-2 text-xs text-zinc-500 hover:text-white hover:bg-canvas-lighter transition-colors border-l border-canvas-lighter"
+                                  className="px-3 py-2 text-xs text-zinc-500 hover:text-white hover:bg-surface-active transition-colors border-l border-border"
                                 >
                                   Select
                                 </button>
@@ -993,10 +994,10 @@ export function NewSessionModal({
                         </div>
 
                         {/* Select current directory button */}
-                        <div className="px-3 py-2 border-t border-canvas-lighter">
+                        <div className="px-3 py-2 border-t border-border">
                           <button
                             onClick={() => selectDirectory(dirBrowsePath)}
-                            className="w-full px-3 py-1.5 rounded-md text-xs font-medium text-white bg-canvas-lighter hover:bg-zinc-700 transition-colors"
+                            className="w-full px-3 py-1.5 rounded-md text-xs font-medium text-white bg-surface-active hover:bg-zinc-700 transition-colors"
                           >
                             Select current: {dirBrowsePath.split("/").pop() || dirBrowsePath}
                           </button>
@@ -1007,16 +1008,16 @@ export function NewSessionModal({
                 </div>
 
                 {/* Footer */}
-                <div className="px-5 py-3 bg-canvas border-t border-canvas-lighter flex justify-end gap-2 flex-shrink-0">
+                <div className="px-5 py-3 bg-canvas border-t border-border flex justify-end gap-2 flex-shrink-0">
                   <button
                     onClick={handleClose}
-                    className="px-3 py-1.5 rounded-md text-sm text-zinc-400 hover:text-white hover:bg-canvas-lighter transition-colors"
+                    className="px-3 py-1.5 rounded-md text-sm text-zinc-400 hover:text-white hover:bg-surface-active transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleCreate}
-                    disabled={!selectedAgent || isCreating || (activeTab === "linear" && !selectedTicket) || (activeTab === "github" && !selectedGithubIssue)}
+                    disabled={!selectedAgent || isCreating || (!selectedAgent?.command && !commandArgs) || (activeTab === "linear" && !selectedTicket) || (activeTab === "github" && !selectedGithubIssue)}
                     className="px-4 py-1.5 rounded-md text-sm font-medium text-canvas bg-white hover:bg-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {isCreating

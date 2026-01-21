@@ -38,7 +38,7 @@ bunx @fallom/openui
 
 1. Run `openui` in your project directory
 2. Browser opens at `http://localhost:6969`
-3. Click "+" to spawn agents (Claude Code or OpenCode)
+3. Click "+" to spawn agents (Claude Code, OpenCode, or Ralph Loop)
 4. Click any node to open its terminal
 5. Drag nodes to organize, create categories to group them
 
@@ -117,7 +117,26 @@ bun run dev  # Server on 6968, UI on 6969
 ## Requirements
 
 - Bun 1.0+
-- One of: Claude Code, OpenCode (or any terminal-based AI agent)
+- One of: Claude Code, OpenCode, or Ralph Loop
+
+### Optional: Ralph Loop
+
+[Ralph](https://github.com/frankbria/ralph-claude-code) is an autonomous development loop that runs Claude Code repeatedly until all tasks are complete. To use it with OpenUI:
+
+```bash
+# Install Ralph globally
+git clone https://github.com/frankbria/ralph-claude-code.git
+cd ralph-claude-code
+./install.sh
+
+# In your project, set up Ralph
+cd your-project
+ralph-setup .
+
+# Then select "Ralph Loop" when creating an agent in OpenUI
+```
+
+Ralph includes rate limiting, circuit breakers, and intelligent exit detection to prevent runaway loops.
 
 ## License
 

@@ -19,18 +19,18 @@ html, body {
   padding: 0;
   height: 100%;
   width: 100%;
-  background: #1a1a1a;
+  background: #0f0f0f;
   color: #fafafa;
   overflow: hidden;
 }
 
 /* React Flow canvas */
 .react-flow {
-  background: #1a1a1a !important;
+  background: #0f0f0f !important;
 }
 
 .react-flow__background {
-  background-color: #1a1a1a !important;
+  background-color: #0f0f0f !important;
 }
 
 .react-flow__pane {
@@ -54,18 +54,18 @@ html, body {
 }
 
 .react-flow__controls {
-  background: #262626 !important;
-  border: 1px solid #333 !important;
+  background: #1a1a1a !important;
+  border: 1px solid #2a2a2a !important;
   border-radius: 8px !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
   overflow: hidden;
 }
 
 .react-flow__controls-button {
   background: transparent !important;
   border: none !important;
-  border-bottom: 1px solid #333 !important;
-  color: #888 !important;
+  border-bottom: 1px solid #2a2a2a !important;
+  color: #666 !important;
   width: 28px !important;
   height: 28px !important;
   padding: 6px !important;
@@ -76,7 +76,7 @@ html, body {
 }
 
 .react-flow__controls-button:hover {
-  background: #333 !important;
+  background: #252525 !important;
   color: #fff !important;
 }
 
@@ -87,10 +87,10 @@ html, body {
 }
 
 .react-flow__minimap {
-  background: #262626 !important;
-  border: 1px solid #333 !important;
+  background: #1a1a1a !important;
+  border: 1px solid #2a2a2a !important;
   border-radius: 8px !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
 }
 
 /* Hide edges/connections */
@@ -116,12 +116,12 @@ html, body {
 }
 
 .xterm-viewport::-webkit-scrollbar-thumb {
-  background: #444;
+  background: #333;
   border-radius: 3px;
 }
 
 .xterm-viewport::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  background: #444;
 }
 
 /* Custom scrollbar */
@@ -135,12 +135,12 @@ html, body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #444;
+  background: #333;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  background: #444;
 }
 
 /* Animations */

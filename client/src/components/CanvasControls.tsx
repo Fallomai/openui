@@ -56,7 +56,7 @@ export function CanvasControls() {
     <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-2">
       <motion.button
         onClick={handleAddCategory}
-        className="w-10 h-10 rounded-full bg-canvas-lighter shadow-lg flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors"
+        className="w-10 h-10 rounded-full bg-surface border border-border shadow-lg flex items-center justify-center text-zinc-400 hover:text-white hover:bg-surface-hover transition-colors"
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         title="New Category"

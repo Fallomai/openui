@@ -86,6 +86,14 @@ apiRoutes.get("/agents", (c) => {
       color: "#22C55E",
       icon: "code",
     },
+    {
+      id: "ralph",
+      name: "Ralph",
+      command: "",
+      description: "Autonomous dev loop (ralph, ralph-setup, ralph-import)",
+      color: "#8B5CF6",
+      icon: "brain",
+    },
   ];
   return c.json(agents);
 });

@@ -113,10 +113,10 @@ export function Sidebar() {
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: "100%", opacity: 0 }}
           transition={{ type: "spring", stiffness: 400, damping: 40 }}
-          className="fixed right-0 top-14 bottom-0 w-full max-w-lg z-50 flex flex-col bg-canvas-dark border-l border-canvas-lighter"
+          className="fixed right-0 top-14 bottom-0 w-full max-w-lg z-50 flex flex-col bg-canvas-dark border-l border-border"
         >
           {/* Header */}
-          <div className="flex-shrink-0 px-4 py-3 border-b border-canvas-lighter">
+          <div className="flex-shrink-0 px-4 py-3 border-b border-border">
             <div className="flex items-center gap-3">
               <div
                 className="w-3 h-3 rounded-full flex-shrink-0"
@@ -140,15 +140,15 @@ export function Sidebar() {
                   onClick={() => setIsEditing(!isEditing)}
                   className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${
                     isEditing 
-                      ? "text-white bg-canvas-lighter" 
-                      : "text-zinc-500 hover:text-white hover:bg-canvas-lighter"
+                      ? "text-white bg-surface-active" 
+                      : "text-zinc-500 hover:text-white hover:bg-surface-active"
                   }`}
                 >
                   <Edit3 className="w-4 h-4" />
                 </button>
                 <button
                   onClick={handleClose}
-                  className="w-7 h-7 rounded flex items-center justify-center text-zinc-500 hover:text-white hover:bg-canvas-lighter transition-colors"
+                  className="w-7 h-7 rounded flex items-center justify-center text-zinc-500 hover:text-white hover:bg-surface-active transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -177,10 +177,10 @@ export function Sidebar() {
 
           {/* Session Management Controls */}
           {!isDisconnected && !isEditing && (
-            <div className="flex-shrink-0 px-4 py-2 border-b border-canvas-lighter">
+            <div className="flex-shrink-0 px-4 py-2 border-b border-border">
               <button
                 onClick={handleNewSession}
-                className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-md bg-canvas-lighter text-zinc-300 text-xs font-medium hover:bg-zinc-700 transition-colors"
+                className="w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-md bg-surface-active text-zinc-300 text-xs font-medium hover:bg-zinc-700 transition-colors"
               >
                 <RotateCcw className="w-3 h-3" />
                 New Session
@@ -195,7 +195,7 @@ export function Sidebar() {
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
-                className="flex-shrink-0 overflow-hidden border-b border-canvas-lighter"
+                className="flex-shrink-0 overflow-hidden border-b border-border"
               >
                 <div className="p-4 space-y-4">
                   <div>
@@ -223,7 +223,7 @@ export function Sidebar() {
                           }).catch(console.error);
                         }
                       }}
-                      className="mt-1 w-full px-3 py-2 rounded-md bg-canvas border border-canvas-lighter text-white text-sm focus:outline-none focus:border-zinc-500 transition-colors"
+                      className="mt-1 w-full px-3 py-2 rounded-md bg-canvas border border-border text-white text-sm focus:outline-none focus:border-zinc-500 transition-colors"
                     />
                   </div>
                   
@@ -315,7 +315,7 @@ export function Sidebar() {
                       }}
                       placeholder="Add notes..."
                       rows={2}
-                      className="mt-1 w-full px-3 py-2 rounded-md bg-canvas border border-canvas-lighter text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors resize-none"
+                      className="mt-1 w-full px-3 py-2 rounded-md bg-canvas border border-border text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-zinc-500 transition-colors resize-none"
                     />
                   </div>
                 </div>
@@ -325,7 +325,7 @@ export function Sidebar() {
 
           {/* Terminal */}
           <div className="flex-1 flex flex-col min-h-0">
-            <div className="flex-shrink-0 px-4 py-2 border-b border-canvas-lighter flex items-center justify-between">
+            <div className="flex-shrink-0 px-4 py-2 border-b border-border flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <TerminalIcon className="w-3.5 h-3.5 text-zinc-500" />
                 <span className="text-xs text-zinc-500">Terminal</span>
@@ -348,7 +348,7 @@ export function Sidebar() {
 
             {/* Enable metrics button - shown below terminal when no metrics */}
             {session.agentId === "claude" && !session.metrics && (
-              <div className="flex-shrink-0 px-3 py-2 border-t border-canvas-lighter bg-purple-500/5">
+              <div className="flex-shrink-0 px-3 py-2 border-t border-border bg-purple-500/5">
                 <button
                   onClick={() => {
                     const ws = new WebSocket(`${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws?sessionId=${session.sessionId}`);
@@ -369,7 +369,7 @@ export function Sidebar() {
 
           {/* Metrics Panel */}
           {session.metrics && (
-            <div className="flex-shrink-0 border-t border-canvas-lighter bg-canvas-dark">
+            <div className="flex-shrink-0 border-t border-border bg-canvas-dark">
               <div className="px-4 py-3">
                 <div className="flex items-center gap-2 mb-3">
                   <Activity className="w-3.5 h-3.5 text-purple-400" />
@@ -441,7 +441,7 @@ export function Sidebar() {
                       ws.close();
                     };
                   }}
-                  className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-md bg-canvas text-zinc-500 text-[10px] font-medium hover:text-zinc-300 hover:bg-canvas-lighter transition-colors"
+                  className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-md bg-canvas text-zinc-500 text-[10px] font-medium hover:text-zinc-300 hover:bg-surface-active transition-colors"
                 >
                   <BarChart3 className="w-3 h-3" />
                   Reconfigure Statusline
@@ -451,10 +451,10 @@ export function Sidebar() {
           )}
 
           {/* Details */}
-          <div className="flex-shrink-0 border-t border-canvas-lighter">
+          <div className="flex-shrink-0 border-t border-border">
             <div className="p-4 space-y-2">
               {session.notes && !isEditing && (
-                <p className="text-xs text-zinc-400 italic mb-3 pb-3 border-b border-canvas-lighter">
+                <p className="text-xs text-zinc-400 italic mb-3 pb-3 border-b border-border">
                   {session.notes}
                 </p>
               )}

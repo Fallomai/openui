@@ -50,12 +50,13 @@ export function AgentNodeCard({
         selected ? "ring-1 ring-white/20" : ""
       }`}
       style={{
-        backgroundColor: "#262626",
+        backgroundColor: "#1a1a1a",
+        border: "1px solid #2a2a2a",
         boxShadow: needsAttention
-          ? `0 0 0 1px ${statusInfo.color}80, 0 0 12px ${statusInfo.color}40, 0 2px 8px rgba(0, 0, 0, 0.3)`
+          ? `0 0 0 1px ${statusInfo.color}80, 0 0 12px ${statusInfo.color}40, 0 4px 12px rgba(0, 0, 0, 0.5)`
           : selected
-          ? "0 4px 16px rgba(0, 0, 0, 0.4)"
-          : "0 2px 8px rgba(0, 0, 0, 0.3)",
+          ? "0 8px 24px rgba(0, 0, 0, 0.6)"
+          : "0 4px 12px rgba(0, 0, 0, 0.4)",
       }}
     >
       {/* Color bar at top */}
@@ -134,10 +135,10 @@ export function AgentNodeCard({
 
         {/* Metrics for Claude agents - compact */}
         {metrics && agentId === "claude" && (
-          <div className="mt-2.5 pt-2 border-t border-zinc-700/50">
+          <div className="mt-2.5 pt-2 border-t border-zinc-800">
             {/* Context bar - full width, more prominent */}
             <div className="flex items-center gap-2 mb-1.5">
-              <div className="flex-1 h-2 bg-zinc-700 rounded-full overflow-hidden">
+              <div className="flex-1 h-2 bg-zinc-800 rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all"
                   style={{

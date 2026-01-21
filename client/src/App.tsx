@@ -270,7 +270,7 @@ function AppContent() {
             variant={BackgroundVariant.Dots}
             gap={24}
             size={1}
-            color="#333"
+            color="#252525"
           />
           <Controls
             showInteractive={false}
@@ -283,7 +283,7 @@ function AppContent() {
         {isEmpty && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-center pointer-events-auto">
-              <div className="w-16 h-16 rounded-2xl bg-canvas-lighter border border-canvas-lighter flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 rounded-2xl bg-surface border border-border flex items-center justify-center mx-auto mb-4">
                 <Plus className="w-8 h-8 text-zinc-600" />
               </div>
               <h2 className="text-lg font-medium text-zinc-300 mb-2">No agents yet</h2>

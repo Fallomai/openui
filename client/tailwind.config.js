@@ -8,15 +8,19 @@ export default {
     extend: {
       colors: {
         'canvas': {
-          DEFAULT: '#1a1a1a',
-          dark: '#141414',
-          light: '#262626',
-          lighter: '#333333'
+          DEFAULT: '#0f0f0f',
+          dark: '#0a0a0a',
+          light: '#1a1a1a',
+          lighter: '#252525'
         },
         'surface': {
-          DEFAULT: '#262626',
-          hover: '#2a2a2a',
-          active: '#333333'
+          DEFAULT: '#1a1a1a',
+          hover: '#1f1f1f',
+          active: '#252525'
+        },
+        'border': {
+          DEFAULT: '#2a2a2a',
+          light: '#333333'
         }
       },
       fontFamily: {

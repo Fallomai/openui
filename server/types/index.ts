@@ -24,10 +24,14 @@ export interface Session {
   nodeId: string;
   isRestored?: boolean;
   metrics?: ClaudeMetrics;
+  position?: { x: number; y: number };
   // Linear ticket info
   ticketId?: string;
   ticketTitle?: string;
   ticketUrl?: string;
+  // Plugin-reported status
+  pluginReportedStatus?: boolean;
+  lastPluginStatusTime?: number;
 }
 
 export interface LinearTicket {

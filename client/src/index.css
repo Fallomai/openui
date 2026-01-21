@@ -158,3 +158,17 @@ html, body {
 .animate-pulse-ring {
   animation: pulse-ring 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+
+/* Beautiful glow pulse animation for active agents */
+@keyframes glow-pulse {
+  0%, 100% {
+    filter: brightness(1) drop-shadow(0 0 8px var(--glow-color, #22C55E));
+  }
+  50% {
+    filter: brightness(1.02) drop-shadow(0 0 20px var(--glow-color, #22C55E)) drop-shadow(0 0 40px var(--glow-color, #22C55E));
+  }
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 2s ease-in-out infinite;
+}

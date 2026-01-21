@@ -314,6 +314,52 @@ apiRoutes.delete("/sessions/:sessionId", (c) => {
   return c.json({ error: "Session not found" }, 404);
 });
 
+// Status update endpoint for Claude Code plugin
+apiRoutes.post("/status-update", async (c) => {
+  const { status, sessionId, cwd } = await c.req.json();
+
+  if (!status) {
+    return c.json({ error: "status is required" }, 400);
+  }
+
+  // Find session by cwd if sessionId not provided (plugin may not have session ID)
+  let session = sessionId ? sessions.get(sessionId) : null;
+
+  if (!session && cwd) {
+    // Find session by matching cwd
+    for (const [, s] of sessions) {
+      if (s.cwd === cwd || s.cwd.startsWith(cwd) || cwd.startsWith(s.cwd)) {
+        session = s;
+        break;
+      }
+    }
+  }
+
+  if (session) {
+    session.status = status;
+    session.pluginReportedStatus = true;
+    session.lastPluginStatusTime = Date.now();
+    log(`\x1b[38;5;141m[plugin]\x1b[0m Status update: ${status} for ${cwd || sessionId}`);
+
+    // Broadcast status change to connected clients
+    for (const client of session.clients) {
+      if (client.readyState === 1) {
+        client.send(JSON.stringify({
+          type: "status",
+          status: session.status,
+          isRestored: session.isRestored
+        }));
+      }
+    }
+
+    return c.json({ success: true });
+  }
+
+  // Even if no session found, log it (might be useful for debugging)
+  log(`\x1b[38;5;141m[plugin]\x1b[0m Status update (no session): ${status} for ${cwd || sessionId}`);
+  return c.json({ success: true, warning: "No matching session found" });
+});
+
 // Categories (groups)
 apiRoutes.get("/categories", (c) => {
   const state = loadState();

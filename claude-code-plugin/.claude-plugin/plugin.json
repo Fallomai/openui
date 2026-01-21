@@ -1,0 +1,7 @@
+{
+  "name": "openui-status",
+  "version": "1.0.0",
+  "description": "Reports Claude Code agent status to OpenUI for real-time status display",
+  "author": "OpenUI",
+  "homepage": "https://github.com/your-repo/openui"
+}

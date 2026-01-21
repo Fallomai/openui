@@ -1,18 +1,34 @@
 import type { Session, AgentStatus } from "../types";
 
 // Status detection via text pattern matching
+// For Claude Code agents with the plugin installed, we prefer plugin-reported status
 export function detectStatus(session: Session): AgentStatus {
   if (session.isRestored || !session.pty) {
     return "disconnected";
   }
 
   const now = Date.now();
+
+  // If plugin has reported status recently (within 10 seconds), trust it
+  if (session.pluginReportedStatus && session.lastPluginStatusTime) {
+    const timeSincePluginUpdate = now - session.lastPluginStatusTime;
+    if (timeSincePluginUpdate < 10000) {
+      return session.status;
+    }
+  }
+
   const timeSinceOutput = now - session.lastOutputTime;
   const timeSinceInput = now - session.lastInputTime;
   const buffer = session.outputBuffer.join("");
   const lastChunk = buffer.slice(-3000);
   const lastChunkLower = lastChunk.toLowerCase();
   const userJustTyped = timeSinceInput < 1000;
+
+  // If buffer is very small and session is new (< 5 seconds old), it's still starting
+  const sessionAge = now - new Date(session.createdAt).getTime();
+  if (buffer.length < 100 && sessionAge < 5000) {
+    return "starting";
+  }
 
   // Question patterns - Claude asking user something
   const questionPatterns = [

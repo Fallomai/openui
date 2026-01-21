@@ -1,11 +1,11 @@
 import { MessageSquare, WifiOff, GitBranch, Loader2, Folder } from "lucide-react";
 import { AgentStatus, ClaudeMetrics } from "../../stores/useStore";
 
-const statusConfig: Record<AgentStatus, { label: string; color: string; bgColor: string; animate?: boolean; attention?: boolean }> = {
+const statusConfig: Record<AgentStatus, { label: string; color: string; bgColor: string; animate?: boolean; attention?: boolean; glow?: boolean }> = {
   starting: { label: "Starting", color: "#FBBF24", bgColor: "#FBBF2420", animate: true },
-  running: { label: "Working", color: "#22C55E", bgColor: "#22C55E20", animate: true },
+  running: { label: "Working", color: "#22C55E", bgColor: "#22C55E20", animate: true, glow: true },
   waiting_input: { label: "Waiting for input", color: "#FBBF24", bgColor: "#FBBF2420", animate: false, attention: true },
-  tool_calling: { label: "Using Tools", color: "#8B5CF6", bgColor: "#8B5CF620", animate: true },
+  tool_calling: { label: "Using Tools", color: "#8B5CF6", bgColor: "#8B5CF620", animate: true, glow: true },
   idle: { label: "Idle", color: "#6B7280", bgColor: "#6B728020", animate: false },
   disconnected: { label: "Offline", color: "#EF4444", bgColor: "#EF444420", animate: false, attention: true },
   error: { label: "Error", color: "#EF4444", bgColor: "#EF444420", animate: false, attention: true },
@@ -40,24 +40,31 @@ export function AgentNodeCard({
 }: AgentNodeCardProps) {
   const statusInfo = statusConfig[status] || statusConfig.idle;
   const needsAttention = statusInfo.attention;
+  const isGlowing = statusInfo.glow;
 
   // Extract directory name from cwd
   const dirName = cwd ? cwd.split("/").pop() || cwd : null;
+
+  // Create glow color variants for CSS variable
+  const glowColorBase = statusInfo.color;
 
   return (
     <div
       className={`relative w-[220px] rounded-lg transition-all duration-200 cursor-pointer ${
         selected ? "ring-1 ring-white/20" : ""
-      }`}
+      } ${isGlowing ? "animate-glow-pulse" : ""}`}
       style={{
         backgroundColor: "#1a1a1a",
-        border: "1px solid #2a2a2a",
-        boxShadow: needsAttention
+        border: isGlowing ? `1px solid ${statusInfo.color}60` : "1px solid #2a2a2a",
+        "--glow-color": glowColorBase,
+        boxShadow: isGlowing
+          ? `0 0 0 1px ${statusInfo.color}40, 0 0 20px ${statusInfo.color}50, 0 0 40px ${statusInfo.color}30, 0 4px 12px rgba(0, 0, 0, 0.5)`
+          : needsAttention
           ? `0 0 0 1px ${statusInfo.color}80, 0 0 12px ${statusInfo.color}40, 0 4px 12px rgba(0, 0, 0, 0.5)`
           : selected
           ? "0 8px 24px rgba(0, 0, 0, 0.6)"
           : "0 4px 12px rgba(0, 0, 0, 0.4)",
-      }}
+      } as React.CSSProperties}
     >
       {/* Color bar at top */}
       <div className="h-1 rounded-t-lg" style={{ backgroundColor: displayColor }} />

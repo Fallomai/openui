@@ -1,6 +1,7 @@
 # OpenUI
 
-<img width="3055" height="2160" alt="openui-frame" src="https://github.com/user-attachments/assets/0dd2ebad-9bd2-481e-b5a1-fdb96ff59c25" />
+
+https://github.com/user-attachments/assets/0a1979ab-f093-447d-8fe7-bcf6830051ee
 
 
 **Your AI Agent Command Center**

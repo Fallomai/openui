@@ -35,6 +35,16 @@ export interface AgentSession {
   currentTool?: string;
 }
 
+const getInitialSidebarWidth = (): number => {
+  if (typeof window === 'undefined') return 35;
+  const stored = localStorage.getItem('openui:sidebarWidthPercent');
+  if (stored) {
+    const parsed = parseFloat(stored);
+    if (!isNaN(parsed) && parsed >= 20 && parsed <= 60) return parsed;
+  }
+  return 35; // default ~512px equivalent on 1440px screens
+};
+
 interface AppState {
   // Config
   launchCwd: string;
@@ -62,6 +72,8 @@ interface AppState {
   setSelectedNodeId: (id: string | null) => void;
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
+  sidebarWidthPercent: number;
+  setSidebarWidthPercent: (percent: number) => void;
   addAgentModalOpen: boolean;
   setAddAgentModalOpen: (open: boolean) => void;
   newSessionModalOpen: boolean;
@@ -123,6 +135,11 @@ export const useStore = create<AppState>((set) => ({
   setSelectedNodeId: (id) => set({ selectedNodeId: id }),
   sidebarOpen: false,
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
+  sidebarWidthPercent: getInitialSidebarWidth(),
+  setSidebarWidthPercent: (percent) => {
+    localStorage.setItem('openui:sidebarWidthPercent', String(percent));
+    set({ sidebarWidthPercent: percent });
+  },
   addAgentModalOpen: false,
   setAddAgentModalOpen: (open) => set({ addAgentModalOpen: open }),
   newSessionModalOpen: false,

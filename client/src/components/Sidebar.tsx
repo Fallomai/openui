@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useStore, AgentStatus } from "../stores/useStore";
 import { Terminal } from "./Terminal";
+import { useResizable } from "../hooks/useResizable";
 
 const statusConfig: Record<AgentStatus, { label: string; color: string }> = {
   running: { label: "Running", color: "#22C55E" },
@@ -56,7 +57,15 @@ export function Sidebar() {
     nodes,
     setNewSessionModalOpen,
     setNewSessionForNodeId,
+    sidebarWidthPercent,
+    setSidebarWidthPercent,
   } = useStore();
+
+  const { isDragging, handleMouseDown } = useResizable({
+    minPercent: 20,
+    maxPercent: 60,
+    onResize: setSidebarWidthPercent,
+  });
 
   const session = selectedNodeId ? sessions.get(selectedNodeId) : null;
   const node = selectedNodeId ? nodes.find(n => n.id === selectedNodeId) : null;
@@ -108,8 +117,16 @@ export function Sidebar() {
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: "100%", opacity: 0 }}
           transition={{ type: "spring", stiffness: 400, damping: 40 }}
-          className="fixed right-0 top-14 bottom-0 w-full max-w-lg z-50 flex flex-col bg-canvas-dark border-l border-border"
+          className="fixed right-0 top-14 bottom-0 z-50 flex flex-col bg-canvas-dark border-l border-border"
+          style={{ width: `${sidebarWidthPercent}vw` }}
         >
+          {/* Drag handle */}
+          <div
+            onMouseDown={handleMouseDown}
+            className={`absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize transition-colors z-10 ${
+              isDragging ? "bg-violet-500" : "hover:bg-violet-500/40"
+            }`}
+          />
           {/* Header */}
           <div className="flex-shrink-0 px-4 py-3 border-b border-border">
             <div className="flex items-center gap-3">

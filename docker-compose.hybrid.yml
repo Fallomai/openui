@@ -1,0 +1,68 @@
+# HYBRID MODE - OpenUI UI in container, AI agents on host
+# For Linux/Ubuntu systems where host networking works correctly.
+# NOTE: This mode runs the UI in a container but expects AI tools (claude, opencode, ralph)
+# to be installed on the HOST system, not inside the container.
+
+services:
+  openui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: openui-hybrid
+    restart: unless-stopped
+
+    # NOTE: When using network_mode: host, the ports directive is ignored.
+    # The container uses the host's network directly, so port 6968 is exposed on localhost.
+
+    # Volume mounts for hybrid mode
+    volumes:
+      # State persistence
+      - openui-state:/root/.openui
+
+      # Plugin directory (synced with host)
+      - ${HOME}/.openui/claude-code-plugin:/root/.openui/claude-code-plugin
+
+      # Project directories - MUST MATCH HOST PATHS for agents to work correctly
+      # When agents spawn on the host, they need to see the same paths
+      - ${PROJECT_DIR:-./projects}:${PROJECT_DIR:-/projects}
+
+      # Docker socket for spawning containers/commands on host
+      - /var/run/docker.sock:/var/run/docker.sock
+
+      # Mount host AI tools into container (required for hybrid mode)
+      # These paths may vary based on your installation method
+      - /usr/local/bin/claude:/usr/local/bin/host-claude:ro
+      - /usr/local/bin/opencode:/usr/local/bin/host-opencode:ro
+      - /usr/local/bin/ralph:/usr/local/bin/host-ralph:ro
+
+      # Git credentials
+      - ${HOME}/.gitconfig:/root/.gitconfig:ro
+      - ${HOME}/.ssh:/root/.ssh:ro
+
+    # Environment variables
+    environment:
+      - NODE_ENV=production
+      - PORT=6968
+      - LAUNCH_CWD=${PROJECT_DIR:-/projects}
+      - OPENUI_QUIET=1
+
+      # Hybrid mode flag
+      - OPENUI_HYBRID_MODE=true
+
+      # Anthropic API key (required for Claude Code)
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+
+    # Working directory (must be /app for static file serving)
+    working_dir: /app
+
+    # Network mode: host gives full access to host network
+    # This works properly on Linux but NOT on macOS/Windows Docker Desktop
+    network_mode: host
+
+    # Keep container running
+    stdin_open: true
+    tty: true
+
+volumes:
+  openui-state:
+    driver: local

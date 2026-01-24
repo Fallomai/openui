@@ -1,0 +1,75 @@
+version: '3.9'
+
+services:
+  openui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: openui-full
+    restart: unless-stopped
+
+    # Port mappings
+    ports:
+      - "6968:6968"  # Backend + WebSocket
+
+    # Project directory mounts
+    # Mount your projects here so agents can work on them
+    volumes:
+      # State persistence
+      - openui-state:/root/.openui
+
+      # Plugin directory
+      - openui-plugin:/root/.openui/claude-code-plugin
+
+      # Project directories - MOUNT YOUR PROJECTS HERE
+      # Examples:
+      - ./projects:/projects
+
+      # Or mount specific projects:
+      # - /path/to/project1:/projects/project1
+      # - /path/to/project2:/projects/project2
+
+      # Git credentials for cloning
+      - ${HOME}/.gitconfig:/root/.gitconfig:ro
+      - ${HOME}/.ssh:/root/.ssh:ro
+
+    # Environment variables
+    environment:
+      - NODE_ENV=production
+      - PORT=6968
+      - LAUNCH_CWD=/projects
+      - OPENUI_QUIET=1
+
+      # Git configuration
+      - GIT_AUTHOR_NAME=${GIT_AUTHOR_NAME:-OpenUI}
+      - GIT_AUTHOR_EMAIL=${GIT_AUTHOR_EMAIL:-openui@local}
+
+      # Claude Code API key (if using Claude API)
+      - ${ANTHROPIC_API_KEY:+ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}}
+
+    # Working directory inside container
+    working_dir: /projects
+
+    # Network mode
+    network_mode: bridge
+
+    # Resource limits (optional but recommended)
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+    # Keep container running
+    stdin_open: true
+    tty: true
+
+volumes:
+  # Persist OpenUI state and plugin
+  openui-state:
+    driver: local
+  openui-plugin:
+    driver: local

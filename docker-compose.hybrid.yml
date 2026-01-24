@@ -1,9 +1,7 @@
-version: '3.9'
-
 # HYBRID MODE - OpenUI UI in container, AI agents on host
-# NOTE: This is an advanced configuration that requires additional setup.
-# The sessionManager.ts needs to be modified to spawn agents via SSH, Docker CLI, or IPC.
-# See README for details on implementing hybrid mode agent spawning.
+# For Linux/Ubuntu systems where host networking works correctly.
+# NOTE: This mode runs the UI in a container but expects AI tools (claude, opencode, ralph)
+# to be installed on the HOST system, not inside the container.
 
 services:
   openui:
@@ -13,9 +11,8 @@ services:
     container_name: openui-hybrid
     restart: unless-stopped
 
-    # Port mappings
-    ports:
-      - "6968:6968"  # Backend + WebSocket
+    # NOTE: When using network_mode: host, the ports directive is ignored.
+    # The container uses the host's network directly, so port 6968 is exposed on localhost.
 
     # Volume mounts for hybrid mode
     volumes:
@@ -25,17 +22,18 @@ services:
       # Plugin directory (synced with host)
       - ${HOME}/.openui/claude-code-plugin:/root/.openui/claude-code-plugin
 
-      # Project directories - MUST MATCH HOST PATHS
-      # This allows agents to run on host but UI sees same files
+      # Project directories - MUST MATCH HOST PATHS for agents to work correctly
+      # When agents spawn on the host, they need to see the same paths
       - ${PROJECT_DIR:-./projects}:${PROJECT_DIR:-/projects}
 
-      # Docker socket for spawning agents on host (optional, for Docker CLI method)
+      # Docker socket for spawning containers/commands on host
       - /var/run/docker.sock:/var/run/docker.sock
 
-      # Host binary access (if AI tools are installed in these locations)
-      # Uncomment and adjust paths based on your host setup:
-      # - /usr/local/bin/claude:/usr/local/bin/claude:ro
-      # - /usr/local/bin/opencode:/usr/local/bin/opencode:ro
+      # Mount host AI tools into container (required for hybrid mode)
+      # These paths may vary based on your installation method
+      - /usr/local/bin/claude:/usr/local/bin/host-claude:ro
+      - /usr/local/bin/opencode:/usr/local/bin/host-opencode:ro
+      - /usr/local/bin/ralph:/usr/local/bin/host-ralph:ro
 
       # Git credentials
       - ${HOME}/.gitconfig:/root/.gitconfig:ro
@@ -48,26 +46,18 @@ services:
       - LAUNCH_CWD=${PROJECT_DIR:-/projects}
       - OPENUI_QUIET=1
 
-      # Hybrid mode flag (for future use in sessionManager)
+      # Hybrid mode flag
       - OPENUI_HYBRID_MODE=true
 
-      # Path to host tools (accessed via mount) - adjust as needed
-      # - CLAUDE_BIN_PATH=/usr/local/bin/claude
-      # - OPENCODE_BIN_PATH=/usr/local/bin/opencode
+      # Anthropic API key (required for Claude Code)
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
 
-    # Working directory
-    working_dir: ${PROJECT_DIR:-/projects}
+    # Working directory (must be /app for static file serving)
+    working_dir: /app
 
-    # Network mode - use host to access host services
-    # Alternatively, use 'bridge' and configure SSH to host
+    # Network mode: host gives full access to host network
+    # This works properly on Linux but NOT on macOS/Windows Docker Desktop
     network_mode: host
-
-    # Extra capabilities for host process spawning (if needed)
-    # Note: These may pose security risks - use with caution
-    # cap_add:
-    #   - SYS_PTRACE
-    # security_opt:
-    #   - apparmor:unconfined
 
     # Keep container running
     stdin_open: true

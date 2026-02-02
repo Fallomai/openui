@@ -3,8 +3,8 @@ import { cors } from "hono/cors";
 import { serveStatic } from "hono/bun";
 import type { ServerWebSocket } from "bun";
 import { apiRoutes } from "./routes/api";
-import { sessions, restoreSessions } from "./services/sessionManager";
-import { saveState } from "./services/persistence";
+import { sessions, restoreSessions, autoResumeSessions } from "./services/sessionManager";
+import { saveState, migrateStateToHome } from "./services/persistence";
 import type { WebSocketData } from "./types";
 
 const app = new Hono();
@@ -107,8 +107,19 @@ Bun.serve<WebSocketData>({
   },
 });
 
+// Migrate state from old location if needed
+const migrationResult = migrateStateToHome();
+if (migrationResult.migrated) {
+  log(`\x1b[38;5;82m[migration]\x1b[0m Migrated state from ${migrationResult.source}`);
+}
+
 // Restore sessions on startup
 restoreSessions();
+
+// Auto-resume non-archived sessions after a short delay
+setTimeout(() => {
+  autoResumeSessions();
+}, 1000);
 
 log(`\x1b[38;5;141m[server]\x1b[0m Running on http://localhost:${PORT}`);
 log(`\x1b[38;5;245m[server]\x1b[0m Launch directory: ${process.env.LAUNCH_CWD || process.cwd()}`);

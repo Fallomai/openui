@@ -16,9 +16,11 @@ import {
   Brain,
   Wand2,
   GitBranch,
+  Archive,
 } from "lucide-react";
 import { useStore, AgentStatus } from "../stores/useStore";
 import { Terminal } from "./Terminal";
+import { ResizeHandle } from "./ResizeHandle";
 
 const statusConfig: Record<AgentStatus, { label: string; color: string }> = {
   running: { label: "Running", color: "#22C55E" },
@@ -56,6 +58,9 @@ export function Sidebar() {
     nodes,
     setNewSessionModalOpen,
     setNewSessionForNodeId,
+    archiveSession,
+    unarchiveSession,
+    showArchived,
   } = useStore();
 
   const session = selectedNodeId ? sessions.get(selectedNodeId) : null;
@@ -67,6 +72,10 @@ export function Sidebar() {
   const [editColor, setEditColor] = useState("");
   const [editIcon, setEditIcon] = useState("");
   const [terminalKey, setTerminalKey] = useState(0);
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = localStorage.getItem("openui-sidebar-width");
+    return saved ? parseInt(saved, 10) : 512;
+  });
 
   // Reset edit state when session changes (but NOT when nodes change)
   useEffect(() => {
@@ -108,8 +117,18 @@ export function Sidebar() {
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: "100%", opacity: 0 }}
           transition={{ type: "spring", stiffness: 400, damping: 40 }}
-          className="fixed right-0 top-14 bottom-0 w-full max-w-lg z-50 flex flex-col bg-canvas-dark border-l border-border"
+          className="fixed right-0 top-14 bottom-0 z-50 flex flex-col bg-canvas-dark border-l border-border"
+          style={{ width: sidebarWidth }}
         >
+          <ResizeHandle
+            onResize={(width) => {
+              setSidebarWidth(width);
+              localStorage.setItem("openui-sidebar-width", width.toString());
+            }}
+            initialWidth={sidebarWidth}
+            minWidth={320}
+            maxWidth={1200}
+          />
           {/* Header */}
           <div className="flex-shrink-0 px-4 py-3 border-b border-border">
             <div className="flex items-center gap-3">
@@ -134,12 +153,28 @@ export function Sidebar() {
                 <button
                   onClick={() => setIsEditing(!isEditing)}
                   className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${
-                    isEditing 
-                      ? "text-white bg-surface-active" 
+                    isEditing
+                      ? "text-white bg-surface-active"
                       : "text-zinc-500 hover:text-white hover:bg-surface-active"
                   }`}
                 >
                   <Edit3 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={async () => {
+                    if (selectedNodeId) {
+                      if (showArchived) {
+                        await unarchiveSession(selectedNodeId);
+                      } else {
+                        await archiveSession(selectedNodeId);
+                      }
+                      handleClose();
+                    }
+                  }}
+                  className="w-7 h-7 rounded flex items-center justify-center text-zinc-500 hover:text-white hover:bg-surface-active transition-colors"
+                  title={showArchived ? "Unarchive" : "Archive"}
+                >
+                  <Archive className="w-4 h-4" />
                 </button>
                 <button
                   onClick={handleClose}

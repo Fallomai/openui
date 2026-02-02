@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Agent } from "../types";
 import { sessions, createSession, deleteSession, injectPluginDir } from "../services/sessionManager";
-import { loadState, saveState, savePositions, getDataDir } from "../services/persistence";
+import { loadState, saveState, savePositions, getDataDir, loadCanvases, saveCanvases, migrateCategoriesToCanvases } from "../services/persistence";
 import {
   loadConfig,
   saveConfig,
@@ -22,6 +22,24 @@ export const apiRoutes = new Hono();
 
 apiRoutes.get("/config", (c) => {
   return c.json({ launchCwd: LAUNCH_CWD, dataDir: getDataDir() });
+});
+
+// Get auto-resume configuration and status
+apiRoutes.get("/auto-resume/config", (c) => {
+  const { getAutoResumeConfig, getSessionsToResume } = require("../services/autoResume");
+  const config = getAutoResumeConfig();
+  const sessionsToResume = getSessionsToResume();
+
+  return c.json({
+    config,
+    sessionsToResumeCount: sessionsToResume.length,
+    sessions: sessionsToResume.map((s: any) => ({
+      sessionId: s.sessionId,
+      nodeId: s.nodeId,
+      agentName: s.agentName,
+      canvasId: s.canvasId,
+    })),
+  });
 });
 
 // Browse directories for file picker
@@ -68,7 +86,7 @@ apiRoutes.get("/agents", (c) => {
     {
       id: "claude",
       name: "Claude Code",
-      command: "claude",
+      command: "llm agent claude",
       description: "Anthropic's official CLI for Claude",
       color: "#F97316",
       icon: "sparkles",
@@ -94,26 +112,31 @@ apiRoutes.get("/agents", (c) => {
 });
 
 apiRoutes.get("/sessions", (c) => {
-  const sessionList = Array.from(sessions.entries()).map(([id, session]) => {
-    return {
-      sessionId: id,
-      nodeId: session.nodeId,
-      agentId: session.agentId,
-      agentName: session.agentName,
-      command: session.command,
-      createdAt: session.createdAt,
-      cwd: session.cwd,
-      originalCwd: session.originalCwd, // Mother repo path when using worktrees
-      gitBranch: session.gitBranch,
-      status: session.status,
-      customName: session.customName,
-      customColor: session.customColor,
-      notes: session.notes,
-      isRestored: session.isRestored,
-      ticketId: session.ticketId,
-      ticketTitle: session.ticketTitle,
-    };
-  });
+  const showArchived = c.req.query("archived") === "true";
+
+  const sessionList = Array.from(sessions.entries())
+    .filter(([, session]) => showArchived ? session.archived : !session.archived)
+    .map(([id, session]) => {
+      return {
+        sessionId: id,
+        nodeId: session.nodeId,
+        agentId: session.agentId,
+        agentName: session.agentName,
+        command: session.command,
+        createdAt: session.createdAt,
+        cwd: session.cwd,
+        originalCwd: session.originalCwd, // Mother repo path when using worktrees
+        gitBranch: session.gitBranch,
+        status: session.status,
+        customName: session.customName,
+        customColor: session.customColor,
+        notes: session.notes,
+        isRestored: session.isRestored,
+        ticketId: session.ticketId,
+        ticketTitle: session.ticketTitle,
+        canvasId: session.canvasId, // Canvas/tab this agent belongs to
+      };
+    });
   return c.json(sessionList);
 });
 
@@ -127,26 +150,34 @@ apiRoutes.get("/sessions/:sessionId/status", (c) => {
 
 apiRoutes.get("/state", (c) => {
   const state = loadState();
-  const nodes = state.nodes.map(node => {
-    const session = sessions.get(node.sessionId);
-    return {
-      ...node,
-      status: session?.status || "disconnected",
-      isAlive: !!session,
-      isRestored: session?.isRestored,
-    };
-  }).filter(n => n.isAlive);
+  const showArchived = c.req.query("archived") === "true";
+
+  const nodes = state.nodes
+    .filter(node => showArchived ? node.archived : !node.archived)
+    .map(node => {
+      const session = sessions.get(node.sessionId);
+      return {
+        ...node,
+        status: session?.status || "disconnected",
+        isAlive: !!session,
+        isRestored: session?.isRestored,
+      };
+    })
+    .filter(n => n.isAlive);
+
   return c.json({ nodes });
 });
 
 apiRoutes.post("/state/positions", async (c) => {
   const { positions } = await c.req.json();
 
-  // Also update session positions in memory
+  // Also update session positions and canvasId in memory
   for (const [nodeId, pos] of Object.entries(positions)) {
     for (const [, session] of sessions) {
       if (session.nodeId === nodeId) {
-        session.position = pos as { x: number; y: number };
+        const posData = pos as { x: number; y: number; canvasId?: string };
+        session.position = { x: posData.x, y: posData.y };
+        session.canvasId = posData.canvasId || session.canvasId;
         break;
       }
     }
@@ -305,6 +336,20 @@ apiRoutes.delete("/sessions/:sessionId", (c) => {
   return c.json({ error: "Session not found" }, 404);
 });
 
+// Archive/unarchive session
+apiRoutes.patch("/sessions/:sessionId/archive", async (c) => {
+  const sessionId = c.req.param("sessionId");
+  const { archived } = await c.req.json();
+
+  const session = sessions.get(sessionId);
+  if (!session) return c.json({ error: "Session not found" }, 404);
+
+  session.archived = archived;
+  saveState(sessions);
+
+  return c.json({ success: true });
+});
+
 // Status update endpoint for Claude Code plugin
 apiRoutes.post("/status-update", async (c) => {
   const body = await c.req.json();
@@ -346,7 +391,7 @@ apiRoutes.post("/status-update", async (c) => {
 
     if (status === "pre_tool") {
       // PreToolUse fired - tool is about to run (or waiting for permission)
-      // Stay as running, track the tool, and start a timer
+      // Stay as running, track the tool
       effectiveStatus = "running";
       session.currentTool = toolName;
       session.preToolTime = Date.now();
@@ -356,25 +401,32 @@ apiRoutes.post("/status-update", async (c) => {
         clearTimeout(session.permissionTimeout);
       }
 
-      // If we don't get post_tool within 2.5 seconds, assume waiting for permission
-      session.permissionTimeout = setTimeout(() => {
-        // Only switch to waiting_input if we haven't received post_tool yet
-        if (session.preToolTime) {
-          session.status = "waiting_input";
-          // Broadcast the status change
-          for (const client of session.clients) {
-            if (client.readyState === 1) {
-              client.send(JSON.stringify({
-                type: "status",
-                status: "waiting_input",
-                isRestored: session.isRestored,
-                currentTool: session.currentTool,
-                hookEvent: "permission_timeout",
-              }));
+      // Tool-specific timeout: Bash commands can run for a long time,
+      // so don't use timeout-based permission detection for them.
+      // For other tools, if post_tool doesn't arrive within 2.5s, assume waiting for permission.
+      const longRunningTools = ["Bash", "Task"];
+      if (!longRunningTools.includes(toolName)) {
+        session.permissionTimeout = setTimeout(() => {
+          // Only switch to waiting_input if we haven't received post_tool yet
+          if (session.preToolTime) {
+            session.status = "waiting_input";
+            // Broadcast the status change
+            for (const client of session.clients) {
+              if (client.readyState === 1) {
+                client.send(JSON.stringify({
+                  type: "status",
+                  status: "waiting_input",
+                  isRestored: session.isRestored,
+                  currentTool: session.currentTool,
+                  hookEvent: "permission_timeout",
+                }));
+              }
             }
           }
-        }
-      }, 2500);
+        }, 2500);
+      } else {
+        session.permissionTimeout = undefined;
+      }
     } else if (status === "post_tool") {
       // PostToolUse fired - tool completed, clear the permission timeout
       effectiveStatus = "running";
@@ -422,64 +474,88 @@ apiRoutes.post("/status-update", async (c) => {
   return c.json({ success: true, warning: "No matching session found" });
 });
 
-// Categories (groups)
-apiRoutes.get("/categories", (c) => {
+// ============ Canvas (Tab) Management ============
+
+// Get all canvases
+apiRoutes.get("/canvases", (c) => {
   const state = loadState();
-  return c.json(state.categories || []);
+  return c.json(state.canvases || []);
 });
 
-apiRoutes.post("/categories", async (c) => {
+// Create new canvas
+apiRoutes.post("/canvases", async (c) => {
+  const canvas = await c.req.json();
   const state = loadState();
-  const category = await c.req.json();
 
-  if (!state.categories) state.categories = [];
-  state.categories.push(category);
+  if (!state.canvases) state.canvases = [];
+  state.canvases.push(canvas);
 
-  const { writeFileSync } = require("fs");
-  const { join } = require("path");
-  const DATA_DIR = join(process.env.LAUNCH_CWD || process.cwd(), ".openui");
-  writeFileSync(join(DATA_DIR, "state.json"), JSON.stringify(state, null, 2));
-
-  return c.json({ success: true });
+  saveCanvases(state.canvases);
+  return c.json({ success: true, canvas });
 });
 
-apiRoutes.patch("/categories/:categoryId", async (c) => {
-  const categoryId = c.req.param("categoryId");
+// Update canvas
+apiRoutes.patch("/canvases/:canvasId", async (c) => {
+  const canvasId = c.req.param("canvasId");
   const updates = await c.req.json();
   const state = loadState();
 
-  if (!state.categories) return c.json({ error: "Category not found" }, 404);
+  const canvas = state.canvases?.find(c => c.id === canvasId);
+  if (!canvas) return c.json({ error: "Canvas not found" }, 404);
 
-  const category = state.categories.find(cat => cat.id === categoryId);
-  if (!category) return c.json({ error: "Category not found" }, 404);
-
-  Object.assign(category, updates);
-
-  const { writeFileSync } = require("fs");
-  const { join } = require("path");
-  const DATA_DIR = join(process.env.LAUNCH_CWD || process.cwd(), ".openui");
-  writeFileSync(join(DATA_DIR, "state.json"), JSON.stringify(state, null, 2));
+  Object.assign(canvas, updates);
+  saveCanvases(state.canvases!);
 
   return c.json({ success: true });
 });
 
-apiRoutes.delete("/categories/:categoryId", (c) => {
-  const categoryId = c.req.param("categoryId");
+// Delete canvas (only if empty)
+apiRoutes.delete("/canvases/:canvasId", async (c) => {
+  const canvasId = c.req.param("canvasId");
   const state = loadState();
 
-  if (!state.categories) return c.json({ error: "Category not found" }, 404);
+  // Check if canvas has nodes
+  const hasNodes = state.nodes.some(n => n.canvasId === canvasId);
+  if (hasNodes) {
+    return c.json({
+      error: "Cannot delete canvas with agents. Move agents first."
+    }, 400);
+  }
 
-  const index = state.categories.findIndex(cat => cat.id === categoryId);
-  if (index === -1) return c.json({ error: "Category not found" }, 404);
+  const index = state.canvases?.findIndex(c => c.id === canvasId);
+  if (index === undefined || index === -1) {
+    return c.json({ error: "Canvas not found" }, 404);
+  }
 
-  state.categories.splice(index, 1);
-
-  const { writeFileSync } = require("fs");
-  const { join } = require("path");
-  const DATA_DIR = join(process.env.LAUNCH_CWD || process.cwd(), ".openui");
-  writeFileSync(join(DATA_DIR, "state.json"), JSON.stringify(state, null, 2));
+  state.canvases!.splice(index, 1);
+  saveCanvases(state.canvases!);
 
   return c.json({ success: true });
+});
+
+// Reorder canvases
+apiRoutes.post("/canvases/reorder", async (c) => {
+  const { canvasIds } = await c.req.json();
+  const state = loadState();
+
+  if (!state.canvases) return c.json({ error: "No canvases" }, 400);
+
+  const reordered = canvasIds.map((id: string, index: number) => {
+    const canvas = state.canvases!.find(c => c.id === id);
+    if (canvas) canvas.order = index;
+    return canvas;
+  }).filter(Boolean);
+
+  state.canvases = reordered;
+  saveCanvases(state.canvases);
+
+  return c.json({ success: true });
+});
+
+// Migration trigger endpoint
+apiRoutes.post("/migrate/canvases", (c) => {
+  const result = migrateCategoriesToCanvases();
+  return c.json(result);
 });
 
 // ============ Linear Integration ============

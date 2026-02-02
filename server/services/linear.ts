@@ -1,10 +1,11 @@
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
+import { homedir } from "os";
 import type { LinearTicket, LinearConfig } from "../types";
 
-const LAUNCH_CWD = process.env.LAUNCH_CWD || process.cwd();
-const CONFIG_FILE = join(LAUNCH_CWD, ".openui", "config.json");
-const ENV_FILE = join(LAUNCH_CWD, ".openui", ".env");
+const DATA_DIR = join(homedir(), ".openui");
+const CONFIG_FILE = join(DATA_DIR, "config.json");
+const ENV_FILE = join(DATA_DIR, ".env");
 
 // Load .env file from .openui directory
 function loadEnvFile(): Record<string, string> {

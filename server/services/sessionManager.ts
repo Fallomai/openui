@@ -423,10 +423,114 @@ export function restoreSessions() {
       notes: node.notes,
       nodeId: node.nodeId,
       isRestored: true,
+      autoResumed: node.autoResumed || false,
       claudeSessionId: node.claudeSessionId,  // Restore Claude session ID for --resume
+      archived: node.archived || false,
+      canvasId: node.canvasId,  // Canvas/tab this agent belongs to
     };
 
     sessions.set(node.sessionId, session);
     log(`\x1b[38;5;245m[restore]\x1b[0m Restored ${node.sessionId} (${node.agentName}) branch: ${gitBranch || 'none'}`);
   }
+}
+
+/**
+ * Auto-resume sessions on startup (resumes all non-archived sessions)
+ */
+export function autoResumeSessions() {
+  const { getSessionsToResume, getAutoResumeConfig } = require("./autoResume");
+  const { saveState } = require("./persistence");
+
+  const config = getAutoResumeConfig();
+  if (!config.enabled) {
+    log(`\x1b[38;5;141m[auto-resume]\x1b[0m Auto-resume is disabled`);
+    return;
+  }
+
+  const sessionsToResume = getSessionsToResume();
+
+  if (sessionsToResume.length === 0) {
+    log(`\x1b[38;5;141m[auto-resume]\x1b[0m No sessions to auto-resume`);
+    return;
+  }
+
+  log(`\x1b[38;5;141m[auto-resume]\x1b[0m Auto-resuming ${sessionsToResume.length} sessions...`);
+
+  for (const node of sessionsToResume) {
+    const session = sessions.get(node.sessionId);
+    if (!session) {
+      log(`\x1b[38;5;245m[auto-resume]\x1b[0m Session not found: ${node.sessionId}`);
+      continue;
+    }
+
+    // Skip if already has a PTY (already running)
+    if (session.pty) {
+      log(`\x1b[38;5;245m[auto-resume]\x1b[0m Skipping ${node.sessionId} (already running)`);
+      continue;
+    }
+
+    try {
+      // Spawn a new PTY for this session
+      const ptyProcess = spawnPty("/bin/bash", [], {
+        name: "xterm-256color",
+        cwd: session.cwd,
+        env: {
+          ...process.env,
+          TERM: "xterm-256color",
+          OPENUI_SESSION_ID: node.sessionId,
+        },
+        rows: 30,
+        cols: 120,
+      });
+
+      session.pty = ptyProcess;
+      session.status = "idle";
+      session.autoResumed = true;
+
+      // Set up PTY data handler
+      ptyProcess.onData((data: string) => {
+        session.outputBuffer.push(data);
+        if (session.outputBuffer.length > 2000) {
+          session.outputBuffer.shift();
+        }
+
+        session.lastOutputTime = Date.now();
+        session.recentOutputSize += data.length;
+
+        // Broadcast to all connected clients
+        for (const client of session.clients) {
+          if (client.readyState === 1) {
+            client.send(JSON.stringify({ type: "output", data }));
+          }
+        }
+      });
+
+      // Build the command with resume flag if we have a Claude session ID
+      let finalCommand = injectPluginDir(session.command, session.agentId);
+
+      // For Claude sessions with a known claudeSessionId, use --resume to restore the specific session
+      if (session.agentId === "claude" && session.claudeSessionId && !finalCommand.includes("--resume")) {
+        const resumeArg = `--resume ${session.claudeSessionId}`;
+        if (finalCommand.includes("llm agent claude")) {
+          finalCommand = finalCommand.replace("llm agent claude", `llm agent claude ${resumeArg}`);
+        } else if (finalCommand.startsWith("claude")) {
+          finalCommand = finalCommand.replace(/^claude(\s|$)/, `claude ${resumeArg}$1`);
+        }
+        log(`\x1b[38;5;141m[auto-resume]\x1b[0m Resuming Claude session: ${session.claudeSessionId}`);
+      }
+
+      // Send the command to the PTY after a short delay
+      setTimeout(() => {
+        ptyProcess.write(`${finalCommand}\r`);
+      }, 300);
+
+      log(`\x1b[38;5;141m[auto-resume]\x1b[0m Resumed ${node.sessionId} (${node.agentName})`);
+    } catch (error) {
+      logError(`\x1b[38;5;141m[auto-resume]\x1b[0m Failed to resume ${node.sessionId}:`, error);
+    }
+  }
+
+  // Save state to persist autoResumed flag
+  saveState(sessions);
+  log(`\x1b[38;5;141m[auto-resume]\x1b[0m Auto-resume complete`);
 }

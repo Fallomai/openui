@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Plus, Folder, Settings } from "lucide-react";
+import { Plus, Folder, Settings, Archive } from "lucide-react";
 import { motion } from "framer-motion";
 import { useStore } from "../stores/useStore";
 import { SettingsModal } from "./SettingsModal";
 
 export function Header() {
-  const { setAddAgentModalOpen, sessions, launchCwd } = useStore();
+  const { setAddAgentModalOpen, sessions, launchCwd, showArchived, setShowArchived } = useStore();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
@@ -37,6 +37,17 @@ export function Header() {
 
       {/* Right side buttons */}
       <div className="flex items-center gap-2">
+        <button
+          onClick={() => setShowArchived(!showArchived)}
+          className={`p-2 rounded-md transition-colors ${
+            showArchived
+              ? "text-orange-400 bg-orange-500/10 hover:bg-orange-500/20"
+              : "text-zinc-400 hover:text-white hover:bg-surface-active"
+          }`}
+          title={showArchived ? "Hide Archived" : "Show Archived"}
+        >
+          <Archive className="w-4 h-4" />
+        </button>
         <button
           onClick={() => setSettingsOpen(true)}
           className="p-2 rounded-md text-zinc-400 hover:text-white hover:bg-surface-active transition-colors"

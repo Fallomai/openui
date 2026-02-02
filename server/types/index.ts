@@ -1,5 +1,6 @@
 import type { IPty } from "bun-pty";
 import type { ServerWebSocket } from "bun";
+import type { Canvas } from "./canvas";
 
 export type AgentStatus = "running" | "waiting_input" | "tool_calling" | "idle" | "disconnected" | "error";
 
@@ -24,6 +25,7 @@ export interface Session {
   notes?: string;
   nodeId: string;
   isRestored?: boolean;
+  autoResumed?: boolean; // True if session was auto-resumed on startup
   position?: { x: number; y: number };
   // Linear ticket info
   ticketId?: string;
@@ -41,6 +43,10 @@ export interface Session {
   // Permission detection
   preToolTime?: number;
   permissionTimeout?: ReturnType<typeof setTimeout>;
+  // Archive status
+  archived?: boolean;
+  // Canvas/tab organization
+  canvasId?: string;
 }
 
 export interface LinearTicket {
@@ -73,8 +79,12 @@ export interface PersistedNode {
   customName?: string;
   customColor?: string;
   notes?: string;
+  icon?: string;
   position: { x: number; y: number };
   claudeSessionId?: string;  // Claude Code's internal session ID for --resume
+  archived?: boolean;
+  autoResumed?: boolean;  // True if session was auto-resumed on startup
+  canvasId: string;  // Canvas/tab this agent belongs to
 }
 
 export interface PersistedCategory {
@@ -88,7 +98,8 @@ export interface PersistedCategory {
 
 export interface PersistedState {
   nodes: PersistedNode[];
-  categories?: PersistedCategory[];
+  canvases?: Canvas[];  // Tab-based workspaces
+  categories?: PersistedCategory[];  // Deprecated: kept for migration from folder system
 }
 
 export interface Agent {

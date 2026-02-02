@@ -112,6 +112,22 @@ console.log(`
 await ensurePluginInstalled();
 checkForUpdates();
 
+// Build client if dist directory doesn't exist
+const clientDistPath = join(import.meta.dir, "..", "client", "dist");
+if (!existsSync(clientDistPath)) {
+  console.log("\x1b[38;5;141m[build]\x1b[0m Building client for first run...");
+  const buildProc = Bun.spawn(["bun", "run", "build"], {
+    cwd: join(import.meta.dir, ".."),
+    stdio: ["inherit", "inherit", "inherit"]
+  });
+  await buildProc.exited;
+  if (buildProc.exitCode !== 0) {
+    console.error("\x1b[38;5;196m[build]\x1b[0m Failed to build client");
+    process.exit(1);
+  }
+  console.log("\x1b[38;5;82m[build]\x1b[0m Client built successfully!\n");
+}
+
 // Start the server with LAUNCH_CWD env var
 // In production mode, suppress server output
 const server = Bun.spawn(["bun", "run", "server/index.ts"], {
@@ -120,12 +136,12 @@ const server = Bun.spawn(["bun", "run", "server/index.ts"], {
   env: { ...process.env, PORT: String(PORT), LAUNCH_CWD, OPENUI_QUIET: IS_DEV ? "" : "1" }
 });
 
-// Open browser
-setTimeout(async () => {
-  const platform = process.platform;
-  const cmd = platform === "darwin" ? "open" : platform === "win32" ? "start" : "xdg-open";
-  await $`${cmd} http://localhost:${PORT}`.quiet();
-}, 1500);
+// Browser opening disabled - access manually at http://localhost:${PORT}
+// setTimeout(async () => {
+//   const platform = process.platform;
+//   const cmd = platform === "darwin" ? "open" : platform === "win32" ? "start" : "xdg-open";
+//   await $`${cmd} http://localhost:${PORT}`.quiet();
+// }, 1500);
 
 process.on("SIGINT", () => {
   server.kill();

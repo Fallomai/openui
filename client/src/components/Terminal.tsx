@@ -97,6 +97,11 @@ export function Terminal({ sessionId, color, nodeId }: TerminalProps) {
       wsRef.current = ws;
 
       ws.onopen = () => {
+        // Fit terminal first to get accurate dimensions
+        if (fitAddonRef.current) {
+          fitAddonRef.current.fit();
+        }
+        // Send accurate dimensions to PTY
         if (xtermRef.current) {
           ws?.send(JSON.stringify({ type: "resize", cols: xtermRef.current.cols, rows: xtermRef.current.rows }));
         }
@@ -111,8 +116,14 @@ export function Terminal({ sessionId, color, nodeId }: TerminalProps) {
               isFirstMessage = false;
               // Clear screen, reset attributes, move cursor home
               term.write("\x1b[2J\x1b[H\x1b[0m");
+              term.write(msg.data);
+              // Scroll to bottom after content renders to show most recent output
+              setTimeout(() => {
+                term.scrollToBottom();
+              }, 50);
+            } else {
+              term.write(msg.data);
             }
-            term.write(msg.data);
           } else if (msg.type === "status") {
             // Handle status updates from plugin hooks
             updateSession(nodeId, {
@@ -173,11 +184,12 @@ export function Terminal({ sessionId, color, nodeId }: TerminalProps) {
   return (
     <div
       ref={terminalRef}
-      className="w-full h-full"
-      style={{ 
-        padding: "12px", 
+      className="w-full h-full overflow-hidden"
+      style={{
+        padding: "12px",
         backgroundColor: "#0d0d0d",
-        minHeight: "200px"
+        minHeight: "200px",
+        boxSizing: "border-box"
       }}
     />
   );

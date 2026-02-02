@@ -1,14 +1,12 @@
 # OpenUI
 
-https://github.com/user-attachments/assets/0a1979ab-f093-447d-8fe7-bcf6830051ee
-
 **Your AI Agent Command Center**
 
 Manage multiple AI coding agents working in parallel on an infinite canvas. See what each agent is working on, their status, and jump in when they need help.
 
 ## The Problem
 
-You want to run 8 Claude agents simultaneously - each working on a different ticket, in isolated branches. But:
+You want to run 8 Claude agents simultaneously - each working on different tasks, in isolated branches. But:
 - Terminal tabs are chaos
 - You can't see who's stuck at a glance
 - Context switching is painful
@@ -19,9 +17,9 @@ You want to run 8 Claude agents simultaneously - each working on a different tic
 OpenUI gives you a visual command center where each agent is a node on a canvas:
 
 - **At-a-glance status**: See which agents are working, idle, or need input
-- **Ticket integration**: Start sessions from Linear tickets with automatic branch creation
+- **GitHub integration**: Start sessions from GitHub issues with automatic branch creation
 - **Branch isolation**: Each agent works in its own git worktree
-- **Organized workspace**: Categories, tabs, custom colors, drag-and-drop layout
+- **Organized workspace**: Tabs, custom colors, drag-and-drop layout
 - **Auto-resume**: Sessions automatically restore on restart
 - **Archive management**: Archive completed sessions while keeping your workspace clean
 
@@ -29,6 +27,7 @@ OpenUI gives you a visual command center where each agent is a node on a canvas:
 
 ### For Databricks (Internal Use)
 
+**Development Mode:**
 ```bash
 # Clone the fork
 git clone https://github.com/JJ27/openui.git
@@ -38,8 +37,24 @@ cd openui
 bun install
 cd client && bun install && cd ..
 
-# Run in development mode
+# Run in development mode (starts on port 6969)
 bun run dev
+```
+
+**Production Mode (Recommended):**
+```bash
+# Clone and install
+git clone https://github.com/JJ27/openui.git
+cd openui
+bun install
+cd client && bun install && cd ..
+
+# Link globally
+bun link
+
+# Now you can run openui from any directory
+cd ~/your-project
+openui
 ```
 
 Then forward port 6969 from your dev machine to access the UI locally.
@@ -62,18 +77,17 @@ bunx @fallom/openui
 
 ## Quick Start
 
-1. Run `openui` (or `bun run dev` for Databricks fork) in your project directory
+1. Run `openui` (or `bun run dev` for development) in your project directory
 2. Browser opens at `http://localhost:6969`
 3. Click "+" to spawn agents (Claude Code, OpenCode, or Ralph Loop)
 4. Click any node to open its terminal
-5. Drag nodes to organize, create categories to group them
+5. Drag nodes to organize, create tabs to group them
 
 ## Features
 
 ### Canvas Management
 - **Infinite canvas** for organizing agents with drag-and-drop positioning
 - **Tabs**: Create multiple canvases to organize agents by project, team, or workflow
-- **Categories (folders)**: Group related agents together with persistent sizing
 - **Custom styling**: Set custom names, colors, and icons per agent
 - **Persistent layout**: All positions and organization saved across restarts
 - **Auto-center**: Automatically centers canvas when switching views
@@ -92,12 +106,12 @@ bunx @fallom/openui
 - **Archive**: Archive completed sessions to keep workspace clean while preserving history
 - **Custom restart**: Restart sessions with modified commands or arguments
 
-### Linear Integration
-- Start sessions directly from Linear tickets
-- Auto-create isolated branches per ticket
-- Git worktree support for parallel work on different tickets
-- Ticket info (ID, title) displayed on agent nodes
-- Ticket URL linking
+### GitHub Integration
+- Start sessions directly from GitHub issues
+- Auto-create isolated branches per issue
+- Git worktree support for parallel work on different issues
+- Issue info (ID, title) displayed on agent nodes
+- Issue URL linking
 
 ### Claude Code Plugin (Auto-installed)
 
@@ -114,18 +128,22 @@ See [claude-code-plugin/README.md](./claude-code-plugin/README.md) for more deta
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                    OpenUI Canvas                     │
-│  ┌─────────┐  ┌─────────┐  ┌─────────┐             │
-│  │ Agent 1 │  │ Agent 2 │  │ Agent 3 │             │
-│  │ PROJ-12 │  │ PROJ-34 │  │  IDLE   │             │
-│  │ Working │  │ Waiting │  │         │             │
-│  └─────────┘  └─────────┘  └─────────┘             │
-│                                                      │
-│  ┌─ Frontend Team ──────────────────────┐           │
-│  │  ┌─────────┐  ┌─────────┐           │           │
-│  │  │ Agent 4 │  │ Agent 5 │           │           │
-│  │  └─────────┘  └─────────┘           │           │
-│  └──────────────────────────────────────┘           │
+│                   OpenUI Canvas                      │
+│  ┌─ Tab: Frontend ─┐  ┌─ Tab: Backend ─┐            │
+│  │                  │  │                 │            │
+│  │  ┌─────────┐    │  │  ┌─────────┐   │            │
+│  │  │ Agent 1 │    │  │  │ Agent 3 │   │            │
+│  │  │ #123    │    │  │  │  IDLE   │   │            │
+│  │  │ Working │    │  │  └─────────┘   │            │
+│  │  └─────────┘    │  │                 │            │
+│  │                  │  └─────────────────┘            │
+│  │  ┌─────────┐    │                                  │
+│  │  │ Agent 2 │    │                                  │
+│  │  │ #124    │    │                                  │
+│  │  │ Waiting │    │                                  │
+│  │  └─────────┘    │                                  │
+│  │                  │                                  │
+│  └──────────────────┘                                 │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -219,27 +237,11 @@ Ralph includes rate limiting, circuit breakers, and intelligent exit detection t
 
 ## Configuration
 
-### Linear Integration
-
-To enable Linear ticket integration:
-
-1. Get a Linear API key from [linear.app/settings/api](https://linear.app/settings/api)
-2. Create `~/.openui/linear-config.json`:
-
-```json
-{
-  "apiKey": "your_linear_api_key_here",
-  "teamId": "your_team_id",
-  "defaultBaseBranch": "main",
-  "ticketPromptTemplate": "Work on ticket {{ticketId}}: {{ticketTitle}}\n\n{{ticketDescription}}"
-}
-```
-
 ### Git Worktrees
 
-When starting sessions from Linear tickets, OpenUI can automatically create git worktrees for branch isolation:
+When starting sessions from GitHub issues, OpenUI can automatically create git worktrees for branch isolation:
 
-- Each ticket gets its own worktree in `../<repo>-<branch-name>/`
+- Each issue gets its own worktree in `../<repo>-<branch-name>/`
 - Agents work independently without affecting your main worktree
 - Automatically cleans up on session archive
 

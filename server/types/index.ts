@@ -27,7 +27,7 @@ export interface Session {
   isRestored?: boolean;
   autoResumed?: boolean; // True if session was auto-resumed on startup
   position?: { x: number; y: number };
-  // Linear ticket info
+  // Ticket/Issue info (for GitHub integration)
   ticketId?: string;
   ticketTitle?: string;
   ticketUrl?: string;
@@ -47,25 +47,6 @@ export interface Session {
   archived?: boolean;
   // Canvas/tab organization
   canvasId?: string;
-}
-
-export interface LinearTicket {
-  id: string;
-  identifier: string;
-  title: string;
-  url: string;
-  state: { name: string; color: string };
-  priority: number;
-  assignee?: { name: string };
-  team?: { name: string; key: string };
-}
-
-export interface LinearConfig {
-  apiKey?: string;
-  defaultTeamId?: string;
-  defaultBaseBranch?: string;
-  createWorktree?: boolean;
-  ticketPromptTemplate?: string;
 }
 
 export interface PersistedNode {

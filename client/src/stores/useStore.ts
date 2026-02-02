@@ -37,7 +37,7 @@ export interface AgentSession {
   customColor?: string;
   notes?: string;
   isRestored?: boolean;
-  // Linear ticket info
+  // Ticket/Issue info (for GitHub integration)
   ticketId?: string;
   ticketTitle?: string;
   // Current tool being used (from plugin)

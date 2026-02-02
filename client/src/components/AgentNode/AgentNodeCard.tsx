@@ -172,14 +172,14 @@ export function AgentNodeCard({
           </div>
         </div>
 
-        {/* Ticket info */}
+        {/* Ticket/Issue info */}
         {ticketId && (
-          <div className="mt-2.5 px-2 py-1.5 rounded-md bg-indigo-500/10 border border-indigo-500/20">
+          <div className="mt-2.5 px-2 py-1.5 rounded-md bg-blue-500/10 border border-blue-500/20">
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-mono font-semibold text-indigo-400">{ticketId}</span>
+              <span className="text-[10px] font-mono font-semibold text-blue-400">{ticketId}</span>
             </div>
             {ticketTitle && (
-              <p className="text-[10px] text-indigo-300/70 truncate mt-0.5">{ticketTitle}</p>
+              <p className="text-[10px] text-blue-300/70 truncate mt-0.5">{ticketTitle}</p>
             )}
           </div>
         )}

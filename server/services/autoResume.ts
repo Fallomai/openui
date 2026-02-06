@@ -5,12 +5,16 @@ export interface AutoResumeConfig {
   enabled: boolean;
   skipArchived: boolean;
   maxConcurrent?: number; // Optional limit on concurrent resumes
+  startupTimeoutMs?: number; // Max wait per agent during sequential startup (default 30s)
+  postSignalDelayMs?: number; // Delay after SessionStart signal before starting next agent (default 2s)
 }
 
 const DEFAULT_CONFIG: AutoResumeConfig = {
   enabled: true,
   skipArchived: true, // Skip archived sessions as per user requirement
   maxConcurrent: undefined, // No limit by default
+  startupTimeoutMs: Number(process.env.OPENUI_STARTUP_TIMEOUT_MS) || 30000,
+  postSignalDelayMs: Number(process.env.OPENUI_POST_SIGNAL_DELAY_MS) || 2000,
 };
 
 /**

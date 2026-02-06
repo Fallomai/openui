@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { Agent } from "../types";
 import { sessions, createSession, deleteSession, injectPluginDir } from "../services/sessionManager";
 import { loadState, saveState, savePositions, getDataDir, loadCanvases, saveCanvases, migrateCategoriesToCanvases } from "../services/persistence";
+import { enqueueSessionStart, signalSessionReady } from "../services/sessionStartQueue";
 
 const LAUNCH_CWD = process.env.LAUNCH_CWD || process.cwd();
 const QUIET = !!process.env.OPENUI_QUIET;
@@ -268,70 +269,80 @@ apiRoutes.post("/sessions/:sessionId/restart", async (c) => {
   if (!session) return c.json({ error: "Session not found" }, 404);
   if (session.pty) return c.json({ error: "Session already running" }, 400);
 
-  const { spawn } = await import("bun-pty");
-  const ptyProcess = spawn("/bin/bash", [], {
-    name: "xterm-256color",
-    cwd: session.cwd,
-    env: {
-      ...process.env,
-      TERM: "xterm-256color",
-      OPENUI_SESSION_ID: sessionId,  // Pass session ID for plugin hooks
-    },
-    rows: 30,
-    cols: 120,
-  });
+  const startFn = async () => {
+    const { spawn } = await import("bun-pty");
+    const ptyProcess = spawn("/bin/bash", [], {
+      name: "xterm-256color",
+      cwd: session.cwd,
+      env: {
+        ...process.env,
+        TERM: "xterm-256color",
+        OPENUI_SESSION_ID: sessionId,  // Pass session ID for plugin hooks
+      },
+      rows: 30,
+      cols: 120,
+    });
 
-  session.pty = ptyProcess;
-  session.isRestored = false;
-  session.status = "running";
-  session.lastOutputTime = Date.now();
-
-  const resetInterval = setInterval(() => {
-    if (!sessions.has(sessionId) || !session.pty) {
-      clearInterval(resetInterval);
-      return;
-    }
-    session.recentOutputSize = Math.max(0, session.recentOutputSize - 50);
-  }, 500);
-
-  ptyProcess.onData((data: string) => {
-    session.outputBuffer.push(data);
-    if (session.outputBuffer.length > 1000) {
-      session.outputBuffer.shift();
-    }
-
+    session.pty = ptyProcess;
+    session.isRestored = false;
+    session.status = "running";
     session.lastOutputTime = Date.now();
-    session.recentOutputSize += data.length;
 
-    for (const client of session.clients) {
-      if (client.readyState === 1) {
-        client.send(JSON.stringify({ type: "output", data }));
+    const resetInterval = setInterval(() => {
+      if (!sessions.has(sessionId) || !session.pty) {
+        clearInterval(resetInterval);
+        return;
       }
+      session.recentOutputSize = Math.max(0, session.recentOutputSize - 50);
+    }, 500);
+
+    ptyProcess.onData((data: string) => {
+      session.outputBuffer.push(data);
+      if (session.outputBuffer.length > 1000) {
+        session.outputBuffer.shift();
+      }
+
+      session.lastOutputTime = Date.now();
+      session.recentOutputSize += data.length;
+
+      for (const client of session.clients) {
+        if (client.readyState === 1) {
+          client.send(JSON.stringify({ type: "output", data }));
+        }
+      }
+    });
+
+    // Build the command with resume flag if we have a Claude session ID
+    let finalCommand = injectPluginDir(session.command, session.agentId);
+
+    // For Claude sessions with a known claudeSessionId, use --resume to restore the specific session
+    if (session.agentId === "claude" && session.claudeSessionId) {
+      // Remove any existing --resume flags first
+      finalCommand = finalCommand.replace(/--resume\s+[\w-]+/g, '').replace(/--resume(?=\s|$)/g, '').trim();
+
+      const resumeArg = `--resume ${session.claudeSessionId}`;
+      if (finalCommand.includes("llm agent claude")) {
+        finalCommand = finalCommand.replace("llm agent claude", `llm agent claude ${resumeArg}`);
+      } else if (finalCommand.startsWith("claude")) {
+        finalCommand = finalCommand.replace(/^claude(\s|$)/, `claude ${resumeArg}$1`);
+      }
+      log(`\x1b[38;5;141m[session]\x1b[0m Resuming Claude session: ${session.claudeSessionId}`);
     }
-  });
 
-  // Build the command with resume flag if we have a Claude session ID
-  let finalCommand = injectPluginDir(session.command, session.agentId);
+    setTimeout(() => {
+      ptyProcess.write(`${finalCommand}\r`);
+    }, 300);
 
-  // For Claude sessions with a known claudeSessionId, use --resume to restore the specific session
-  if (session.agentId === "claude" && session.claudeSessionId) {
-    // Remove any existing --resume flags first
-    finalCommand = finalCommand.replace(/--resume\s+[\w-]+/g, '').replace(/--resume(?=\s|$)/g, '').trim();
+    log(`\x1b[38;5;141m[session]\x1b[0m Restarted ${sessionId}`);
+  };
 
-    const resumeArg = `--resume ${session.claudeSessionId}`;
-    if (finalCommand.includes("llm agent claude")) {
-      finalCommand = finalCommand.replace("llm agent claude", `llm agent claude ${resumeArg}`);
-    } else if (finalCommand.startsWith("claude")) {
-      finalCommand = finalCommand.replace(/^claude(\s|$)/, `claude ${resumeArg}$1`);
-    }
-    log(`\x1b[38;5;141m[session]\x1b[0m Resuming Claude session: ${session.claudeSessionId}`);
+  // Claude agents go through the queue to prevent OAuth port contention
+  if (session.agentId === "claude") {
+    enqueueSessionStart(sessionId, startFn);
+  } else {
+    startFn();
   }
 
-  setTimeout(() => {
-    ptyProcess.write(`${finalCommand}\r`);
-  }, 300);
-
-  log(`\x1b[38;5;141m[session]\x1b[0m Restarted ${sessionId}`);
   return c.json({ success: true });
 });
 
@@ -432,6 +443,11 @@ apiRoutes.post("/status-update", async (c) => {
     // Store Claude session ID mapping if we have it
     if (claudeSessionId && !session.claudeSessionId) {
       session.claudeSessionId = claudeSessionId;
+    }
+
+    // Signal the start queue that this session has completed OAuth/initialization
+    if (hookEvent === "SessionStart" && openuiSessionId) {
+      signalSessionReady(openuiSessionId);
     }
 
     // Handle pre_tool/post_tool for permission detection

@@ -5,6 +5,7 @@ import { join, basename } from "path";
 import { homedir } from "os";
 import type { Session } from "../types";
 import { loadBuffer } from "./persistence";
+import { enqueueSessionStart, signalSessionReady } from "./sessionStartQueue";
 
 const QUIET = !!process.env.OPENUI_QUIET;
 const log = QUIET ? () => {} : console.log.bind(console);
@@ -361,23 +362,33 @@ export function createSession(params: {
   // Run the command (inject plugin-dir for Claude if available)
   const finalCommand = injectPluginDir(command, agentId);
   log(`\x1b[38;5;82m[pty-write]\x1b[0m Writing command: ${finalCommand}`);
-  setTimeout(() => {
-    ptyProcess.write(`${finalCommand}\r`);
 
-    // If there's a ticket URL, send it to the agent after a delay
-    if (ticketUrl) {
-      setTimeout(() => {
-        // Use custom template or default
-        const defaultTemplate = "Here is the ticket for this session: {{url}}\n\nPlease use the Linear MCP tool or fetch the URL to read the full ticket details before starting work.";
-        const template = ticketPromptTemplate || defaultTemplate;
-        const ticketPrompt = template
-          .replace(/\{\{url\}\}/g, ticketUrl)
-          .replace(/\{\{id\}\}/g, ticketId || "")
-          .replace(/\{\{title\}\}/g, ticketTitle || "");
-        ptyProcess.write(ticketPrompt + "\r");
-      }, 2000);
-    }
-  }, 300);
+  const writeCommand = () => {
+    setTimeout(() => {
+      ptyProcess.write(`${finalCommand}\r`);
+
+      // If there's a ticket URL, send it to the agent after a delay
+      if (ticketUrl) {
+        setTimeout(() => {
+          // Use custom template or default
+          const defaultTemplate = "Here is the ticket for this session: {{url}}\n\nPlease use the Linear MCP tool or fetch the URL to read the full ticket details before starting work.";
+          const template = ticketPromptTemplate || defaultTemplate;
+          const ticketPrompt = template
+            .replace(/\{\{url\}\}/g, ticketUrl)
+            .replace(/\{\{id\}\}/g, ticketId || "")
+            .replace(/\{\{title\}\}/g, ticketTitle || "");
+          ptyProcess.write(ticketPrompt + "\r");
+        }, 2000);
+      }
+    }, 300);
+  };
+
+  // Claude agents go through the queue to prevent OAuth port contention
+  if (agentId === "claude") {
+    enqueueSessionStart(sessionId, writeCommand);
+  } else {
+    writeCommand();
+  }
 
   log(`\x1b[38;5;141m[session]\x1b[0m Created ${sessionId} for ${agentName}${ticketId ? ` (ticket: ${ticketId})` : ""}`);
   return { session, cwd: workingDir, gitBranch: gitBranch || undefined };
@@ -476,68 +487,80 @@ export function autoResumeSessions() {
       continue;
     }
 
-    try {
-      // Spawn a new PTY for this session
-      const ptyProcess = spawnPty("/bin/bash", [], {
-        name: "xterm-256color",
-        cwd: session.cwd,
-        env: {
-          ...process.env,
-          TERM: "xterm-256color",
-          OPENUI_SESSION_ID: node.sessionId,
-        },
-        rows: 30,
-        cols: 120,
-      });
+    const startFn = () => {
+      try {
+        // Spawn a new PTY for this session
+        const ptyProcess = spawnPty("/bin/bash", [], {
+          name: "xterm-256color",
+          cwd: session.cwd,
+          env: {
+            ...process.env,
+            TERM: "xterm-256color",
+            OPENUI_SESSION_ID: node.sessionId,
+          },
+          rows: 30,
+          cols: 120,
+        });
 
-      session.pty = ptyProcess;
-      session.status = "idle";
-      session.isRestored = false;
-      session.autoResumed = true;
+        session.pty = ptyProcess;
+        session.status = "idle";
+        session.isRestored = false;
+        session.autoResumed = true;
 
-      // Set up PTY data handler
-      ptyProcess.onData((data: string) => {
-        session.outputBuffer.push(data);
-        if (session.outputBuffer.length > 2000) {
-          session.outputBuffer.shift();
-        }
-
-        session.lastOutputTime = Date.now();
-        session.recentOutputSize += data.length;
-
-        // Broadcast to all connected clients
-        for (const client of session.clients) {
-          if (client.readyState === 1) {
-            client.send(JSON.stringify({ type: "output", data }));
+        // Set up PTY data handler
+        ptyProcess.onData((data: string) => {
+          session.outputBuffer.push(data);
+          if (session.outputBuffer.length > 2000) {
+            session.outputBuffer.shift();
           }
+
+          session.lastOutputTime = Date.now();
+          session.recentOutputSize += data.length;
+
+          // Broadcast to all connected clients
+          for (const client of session.clients) {
+            if (client.readyState === 1) {
+              client.send(JSON.stringify({ type: "output", data }));
+            }
+          }
+        });
+
+        // Build the command with resume flag if we have a Claude session ID
+        let finalCommand = injectPluginDir(session.command, session.agentId);
+
+        // For Claude sessions with a known claudeSessionId, use --resume to restore the specific session
+        if (session.agentId === "claude" && session.claudeSessionId) {
+          // Remove any existing --resume flags first
+          finalCommand = finalCommand.replace(/--resume\s+[\w-]+/g, '').replace(/--resume(?=\s|$)/g, '').trim();
+
+          const resumeArg = `--resume ${session.claudeSessionId}`;
+          if (finalCommand.includes("llm agent claude")) {
+            finalCommand = finalCommand.replace("llm agent claude", `llm agent claude ${resumeArg}`);
+          } else if (finalCommand.startsWith("claude")) {
+            finalCommand = finalCommand.replace(/^claude(\s|$)/, `claude ${resumeArg}$1`);
+          }
+          log(`\x1b[38;5;141m[auto-resume]\x1b[0m Resuming Claude session: ${session.claudeSessionId}`);
         }
-      });
 
-      // Build the command with resume flag if we have a Claude session ID
-      let finalCommand = injectPluginDir(session.command, session.agentId);
+        // Send the command to the PTY after a short delay
+        setTimeout(() => {
+          ptyProcess.write(`${finalCommand}\r`);
+        }, 300);
 
-      // For Claude sessions with a known claudeSessionId, use --resume to restore the specific session
-      if (session.agentId === "claude" && session.claudeSessionId) {
-        // Remove any existing --resume flags first
-        finalCommand = finalCommand.replace(/--resume\s+[\w-]+/g, '').replace(/--resume(?=\s|$)/g, '').trim();
-
-        const resumeArg = `--resume ${session.claudeSessionId}`;
-        if (finalCommand.includes("llm agent claude")) {
-          finalCommand = finalCommand.replace("llm agent claude", `llm agent claude ${resumeArg}`);
-        } else if (finalCommand.startsWith("claude")) {
-          finalCommand = finalCommand.replace(/^claude(\s|$)/, `claude ${resumeArg}$1`);
-        }
-        log(`\x1b[38;5;141m[auto-resume]\x1b[0m Resuming Claude session: ${session.claudeSessionId}`);
+        log(`\x1b[38;5;141m[auto-resume]\x1b[0m Resumed ${node.sessionId} (${node.agentName})`);
+      } catch (error) {
+        logError(`\x1b[38;5;141m[auto-resume]\x1b[0m Failed to resume ${node.sessionId}:`, error);
+        // Signal ready on failure so the queue isn't blocked
+        signalSessionReady(node.sessionId);
       }
+    };
 
-      // Send the command to the PTY after a short delay
-      setTimeout(() => {
-        ptyProcess.write(`${finalCommand}\r`);
-      }, 300);
-
-      log(`\x1b[38;5;141m[auto-resume]\x1b[0m Resumed ${node.sessionId} (${node.agentName})`);
-    } catch (error) {
-      logError(`\x1b[38;5;141m[auto-resume]\x1b[0m Failed to resume ${node.sessionId}:`, error);
+    // Claude agents go through the queue to prevent OAuth port contention
+    if (session.agentId === "claude") {
+      enqueueSessionStart(node.sessionId, startFn);
+    } else {
+      // Non-Claude agents start immediately (no OAuth)
+      startFn();
     }
   }
 
